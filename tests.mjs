@@ -63,6 +63,7 @@ test('server persists Apply, rejects stale/foreign writes, reloads saved session
   const appResponse = await fetch(url + '/app.mjs'); assert.equal(appResponse.status,200); assert.match(appResponse.headers.get('content-type'), /javascript/);
   let response = await request('/api/session', 'GET'); const state = await response.json(); assert.equal(state.revision, 0);
   const edited = clone(demo); indexTree(edited.root).get('connectButton').node.props.width = 'fill';
+  edited.layout={mode:'free',frames:{connectButton:{parent:'serverCard',x:20.5,y:100,width:144,height:48}}};
   response = await request('/api/apply', 'POST', { revision: 0, document: edited }); assert.equal(response.status, 200); const saved = await response.json();
   assert.equal(saved.applied.mode, 'test');
   const report = await readFile(path.join(data, saved.applied.directory, 'report.md'), 'utf8');
@@ -138,4 +139,25 @@ test('resize sides and corners anchor opposite edges at every zoom and clamp dim
     if(direction.includes('n'))assert.equal(next.top+next.height,rect.top+rect.height);
   }
   for(const scale of [.3,.65,1])assert.deepEqual(resizeRect(rect,'nw',25*scale/scale,15*scale/scale),{left:45,top:55,width:75,height:45});
+});
+
+
+test('free layout validates geometry and parent links, survives diff and history', () => {
+  const edited=clone(demo);
+  edited.layout={mode:'free',frames:{connectButton:{parent:'serverCard',x:-20.5,y:99.125,width:144.5,height:48}}};
+  validate(edited);
+  assert.deepEqual(move(edited,'connectButton','serverCard',indexTree(edited.root).get('connectButton').index),edited);
+  const moved=move(edited,'connectButton','preferences',0);assert.equal(moved.layout.frames,undefined);validate(moved);
+  const patch=diff(demo,edited); assert.equal(patch.layoutMode,'free');
+  assert.deepEqual(patch.changes.find(c=>c.property==='layout').after,edited.layout);
+  const history=new History(demo); history.commit(edited);
+  const automatic=clone(edited);automatic.layout={mode:'auto'};history.commit(automatic);
+  assert.deepEqual(history.undo(),edited);assert.deepEqual(history.undo(),demo);assert.deepEqual(history.redo(),edited);
+  for(const change of [f=>f.x=Infinity,f=>f.width=-1,f=>f.height=16001,f=>f.parent='preferences',f=>f.extra=1]) {
+    const invalid=clone(edited);change(invalid.layout.frames.connectButton);assert.throws(()=>validate(invalid),/layout.frames/);
+  }
+  const wrong=clone(edited);wrong.layout.mode='unknown';assert.throws(()=>validate(wrong),/layout/);
+  wrong.layout={mode:'free',frames:{missing:{parent:null,x:0,y:0,width:1,height:1}}};assert.throws(()=>validate(wrong),/layout.frames/);
+  assert.match(createReport(patch),/Свободная компоновка/);
+  assert.match(createReport(diff(demo,automatic)),/Автоматическая компоновка/);
 });

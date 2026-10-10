@@ -51,6 +51,17 @@ export function validate(doc) {
     for (const child of n.children || []) visit(child, depth + 1);
   }
   visit(doc.root, 0);
+  if(doc.layout!=null) {
+    if(!doc.layout || typeof doc.layout!=='object' || Array.isArray(doc.layout) || !['free','auto'].includes(doc.layout.mode) || Object.keys(doc.layout).some(k=>!['mode','frames'].includes(k)))throw Error('layout: mode free или auto, необязательные frames');
+    if(doc.layout.frames!=null) {
+      if(typeof doc.layout.frames!=='object'||Array.isArray(doc.layout.frames))throw Error('layout.frames: объект');
+      const map=indexTree(doc.root);
+      for(const [id,frame] of Object.entries(doc.layout.frames)) {
+        if(!map.has(id)||!frame||frame.parent!==map.get(id).parent || Object.keys(frame).sort().join(',')!=='height,parent,width,x,y')throw Error('layout.frames: ID, родитель и геометрия должны соответствовать дереву');
+        for(const key of ['x','y','width','height'])if(!Number.isFinite(frame[key]) || (['width','height'].includes(key)?frame[key]<0||frame[key]>16000:Math.abs(frame[key])>16000))throw Error('layout.frames: геометрия 0–16000, координаты ±16000 dp');
+      }
+    }
+  }
   return doc;
 }
 export function indexTree(root) {
@@ -79,10 +90,10 @@ export function diff(base, current) {
     const prevOrder = (old.node.children || []).map(n => n.id), nextOrder = (entry.node.children || []).map(n => n.id);
     if (JSON.stringify(prevOrder) !== JSON.stringify(nextOrder)) changes.push({ id, source, operation: 'children', before: prevOrder, after: nextOrder });
   }
-  for (const key of ['name', 'viewport', 'state']) {
+  for (const key of ['name', 'viewport', 'state', 'layout']) {
     if (JSON.stringify(base[key]) !== JSON.stringify(current[key])) changes.push({ operation: 'document', property: key, before: base[key] ?? null, after: current[key] ?? null });
   }
-  return { schemaVersion: 1, name: current.name, sourceRevision: base.sourceRevision || null, viewport: current.viewport, state: current.state || null, changes };
+  return { schemaVersion: 1, name: current.name, sourceRevision: base.sourceRevision || null, viewport: current.viewport, state: current.state || null, layoutMode: current.layout?.mode || 'free', changes };
 }
 export function move(doc, id, parentId, position) {
   const next = clone(doc), map = indexTree(next.root), entry = map.get(id), target = map.get(parentId);
@@ -92,6 +103,7 @@ export function move(doc, id, parentId, position) {
   previous.splice(previous.findIndex(n => n.id === id), 1);
   target.node.children ||= [];
   target.node.children.splice(Math.max(0, Math.min(position, target.node.children.length)), 0, entry.node);
+  if(next.layout?.frames && (entry.parent!==parentId || target.node.children.findIndex(n=>n.id===id)!==entry.index))delete next.layout.frames;
   return validate(next);
 }
 export class History {

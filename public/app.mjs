@@ -40,8 +40,33 @@ function queueSave(url = '/api/draft', documentValue = clone(doc())) {
   });
   return saveQueue;
 }
-function changed(next, keepInspector = false) {
+function captureFrames() {
+  const frames={}, map=indexTree(doc().root), slot=$('after');
+  for(const element of slot.querySelectorAll('[data-node-id]')) {
+    const entry=map.get(element.dataset.nodeId), rect=element.getBoundingClientRect();
+    const parent=element.parentElement, origin=parent.getBoundingClientRect(), parentStyle=getComputedStyle(parent);
+    const round=value=>Math.round(value*1000)/1000;
+    frames[entry.node.id]={parent:entry.parent,x:round((rect.left-origin.left)/scale-(parseFloat(parentStyle.borderLeftWidth)||0)+parent.scrollLeft-(entry.node.props.offsetX||0)),y:round((rect.top-origin.top)/scale-(parseFloat(parentStyle.borderTopWidth)||0)+parent.scrollTop-(entry.node.props.offsetY||0)),width:round(rect.width/scale),height:round(rect.height/scale)};
+  }
+  return frames;
+}
+function freeMode(value=doc()) {return value.layout?.mode!=='auto';}
+function freezePreview(frames) {
+  for(const element of $('after').querySelectorAll('[data-node-id]')) applyFrame(element,frames[element.dataset.nodeId]);
+}
+function applyFrame(element,frame) {
+  if(!frame)return;
+  Object.assign(element.style,{width:`${frame.width}px`,height:`${frame.height}px`,maxWidth:'none',flexGrow:'0',flexBasis:'auto',gridArea:'auto'});
+  if(frame.parent!==null)Object.assign(element.style,{position:'absolute',left:`${frame.x}px`,top:`${frame.y}px`});
+}
+function changed(next, keepInspector = false, skipFreeze = false) {
   try {
+    const structure=value=>[...indexTree(value.root)].map(([id,e])=>[id,e.parent,e.index]);
+    const structural=JSON.stringify(structure(next))!==JSON.stringify(structure(doc()));
+    if(freeMode(next)&&!skipFreeze) {
+      if(structural)next.layout={mode:'free'};
+      else if(!next.layout?.frames)next.layout={mode:'free',frames:captureFrames()};
+    }
     if (!history.commit(next)) return;
     localSave();
     if (keepInspector) { renderTree(); renderPreview(); renderDiff(); $('undo').disabled = !history.past.length; $('redo').disabled = !history.future.length; }
@@ -91,7 +116,8 @@ const drag = createDrag({
     dragging = id;
     if (element.closest('#after')) {
       selected=id; const props=clone(indexTree(doc().root).get(id).node.props);
-      visualDrag={id,element,point,props,offsets:{offsetX:props.offsetX||0,offsetY:props.offsetY||0},scale};
+      const frames=freeMode()?captureFrames():null; if(frames)freezePreview(frames);
+      visualDrag={frames,id,element,point,props,offsets:{offsetX:props.offsetX||0,offsetY:props.offsetY||0},scale};
       $('after').querySelectorAll('[data-node-id]').forEach(n=>n.classList.toggle('selected',n===element));
       renderTree(); renderInspector(); renderSelectionFrame(); document.body.classList.add('dragging'); return;
     }
@@ -115,7 +141,7 @@ const drag = createDrag({
       const gesture=visualDrag; visualDrag=null; dragging=null; document.body.classList.remove('dragging');
       suppressClick=true; setTimeout(()=>{suppressClick=false;},100);
       if (canceled) {renderPreview(); notice('Перемещение отменено.');}
-      else {const next=clone(doc()); const props=indexTree(next.root).get(id).node.props;
+      else {const next=clone(doc()); if(gesture.frames)next.layout={mode:'free',frames:gesture.frames}; const props=indexTree(next.root).get(id).node.props;
         for (const key of ['offsetX','offsetY']) if (gesture.offsets[key] !== (props[key]||0)) props[key]=gesture.offsets[key];
         changed(next); renderPreview(); notice('Элемент перемещён. Отменить — Ctrl+Z.');}
       return;
@@ -144,7 +170,7 @@ function renderTree() {
   $('add').disabled = !CONTAINERS.includes(map.get(selected)?.node.type);
 }
 const alignment = { start: 'flex-start', center: 'center', end: 'flex-end', stretch: 'stretch', 'space-between': 'space-between' };
-function renderNode(node, editable, parentType) {
+function renderNode(node, editable, parentType, frames) {
   const p = node.props, container = CONTAINERS.includes(node.type), n = el('div', 'layout-node');
   n.dataset.nodeId = node.id; n.dataset.label = node.id;
   if (container) {
@@ -196,7 +222,13 @@ function renderNode(node, editable, parentType) {
     if (p.src) { const image = el('img', 'image-node'); image.src = p.src; image.alt = p.text || 'Изображение'; image.style.width = '100%'; image.style.height = '100%'; n.append(image); }
     else { n.textContent = '▧ Изображение'; n.style.background ||= '#e9e6f4'; n.style.padding ||= '24px'; }
   }
-  (node.children || []).forEach(child => n.append(renderNode(child, editable, node.type)));
+  (node.children || []).forEach(child => n.append(renderNode(child, editable, node.type, frames)));
+  if(frames?.[node.id]) {
+    const frame=frames[node.id]; applyFrame(n,frame);
+    for(const key of ['width','height']) {
+      if(typeof p[key]==='number')n.style[key]=`${p[key]}px`;
+    }
+  }
   if (editable) {
     n.dataset.editable = 'true'; n.classList.toggle('selected', selected === node.id);
     n.addEventListener('click', event => { event.stopPropagation(); if (!suppressClick && selected !== node.id) select(node.id); });
@@ -219,7 +251,7 @@ function renderPreview() {
     const phone = el('div', 'phone'); phone.style.width = `${w}px`; phone.style.height = `${h}px`; phone.style.transform = `scale(${scale})`;
     phone.style.background = value.root.props.background || '#F6F7FB';
     const status = el('div', 'statusbar'); status.append(el('span', '', '9:41'), el('span', '', '▴  ▰'));
-    const body = el('div', 'phone-body'); body.append(renderNode(value.root, editable)); phone.append(status, body, el('div', 'home-indicator')); slot.replaceChildren(phone);
+    const body = el('div', 'phone-body'); body.append(renderNode(value.root, editable, undefined, freeMode(value)?value.layout?.frames:null)); phone.append(status, body, el('div', 'home-indicator')); slot.replaceChildren(phone);
     slot.querySelectorAll('[data-node-id]').forEach(n => { if (scrollPositions.has(n.dataset.nodeId)) n.scrollTop = scrollPositions.get(n.dataset.nodeId); });
   }
   renderSelectionFrame();
@@ -257,7 +289,8 @@ function renderSelectionFrame() {
 function resizeState(direction) {
   const element=selectedPreview(), rect=element.getBoundingClientRect(), entry=indexTree(doc().root).get(selected);
   const parentType=indexTree(doc().root).get(entry.parent)?.node.type;
-  return {id:selected,element,direction,scale,props:clone(entry.node.props),rect:{left:rect.left/scale,top:rect.top/scale,width:rect.width/scale,height:rect.height/scale}, parentType, changed:false};
+  const frames=freeMode()?captureFrames():null; if(frames)freezePreview(frames);
+  return {frames,id:selected,element,direction,scale,props:clone(entry.node.props),rect:{left:rect.left/scale,top:rect.top/scale,width:rect.width/scale,height:rect.height/scale}, parentType, changed:false};
 }
 function applyResize(gesture,dx,dy) {
   const {element,direction,props}=gesture, horizontal=/[ew]/.test(direction),vertical=/[ns]/.test(direction);
@@ -281,6 +314,7 @@ function applyResize(gesture,dx,dy) {
 function commitResize(gesture) {
   if(!gesture.changed){renderPreview();return;}
   const next=clone(doc()), props=indexTree(next.root).get(gesture.id).node.props;
+  if(gesture.frames)next.layout={mode:'free',frames:gesture.frames};
   if(/[ew]/.test(gesture.direction))props.width=gesture.size.width;
   if(/[ns]/.test(gesture.direction))props.height=gesture.size.height;
   if(gesture.mainAxis)delete props.weight;
@@ -310,7 +344,7 @@ function field(label, key, kind = 'number', options = {}) {
     input.value = p[key] ?? '';
   } else if (kind === 'size') {
     sizeMode = el('select'); sizeMode.setAttribute('aria-label', `${label}: режим`);
-    for (const [value, labelText] of [['','По умолчанию'],['auto','По содержимому'],['fill','Заполнить место'],['fixed','Точный размер']]) { const option = el('option','',labelText); option.value=value; sizeMode.append(option); }
+    for (const [value, labelText] of [['','По умолчанию'],['auto','По содержимому'],['fill','Заполнить место'],['fixed','Точный размер']]) { const option = el('option','',labelText); option.value=value; if(freeMode()&&value!=='fixed'&&value!=='')option.disabled=true; sizeMode.append(option); }
     sizeMode.value = typeof p[key] === 'number' ? 'fixed' : p[key] ?? '';
     input = el('input'); input.type='number'; input.min=0; input.max=4000; input.step='any'; input.placeholder='Число · dp'; input.value=typeof p[key] === 'number' ? p[key] : ''; input.hidden=sizeMode.value !== 'fixed';
     sizeMode.addEventListener('change', () => updateProperty(key, sizeMode.value === 'fixed' ? 100 : sizeMode.value || undefined));
@@ -322,6 +356,7 @@ function field(label, key, kind = 'number', options = {}) {
     if (kind === 'color') input.value = p[key] || (key === 'color' ? '#30384D' : '#FFFFFF');
     if (kind === 'checkbox') input.checked = Boolean(p[key]);
   }
+  if(freeMode() && ['align','justify','gap','weight'].includes(key)) {input.disabled=true;input.title='Доступно в автоматической компоновке';}
   input.dataset.property = key; input.setAttribute('aria-label', label);
   const readValue = () => {
     let value = kind === 'size' && sizeMode.value !== 'fixed' ? sizeMode.value : input.value;
@@ -358,6 +393,7 @@ function section(title, fields = []) {
 function renderInspector() {
   const map = indexTree(doc().root); if (!map.has(selected)) selected = doc().root.id;
   const entry = map.get(selected), node = entry.node, container = CONTAINERS.includes(node.type), panel = $('inspector'); panel.replaceChildren();
+  panel.append(el('p','prop-help',freeMode()?'Свободная компоновка: размеры и позиции фиксируются. Для размеров по содержимому, заполнения и выравнивания переключитесь на автоматическую компоновку.':'Автоматическая компоновка: Row/Column рассчитывают положение соседей по размерам и выравниванию.'));
   const intro = el('div'); intro.append(el('div', 'selected-title', node.id), el('span', 'type-tag', node.type)); panel.append(intro);
   if (['Text', 'Button', 'Icon', 'TextField', 'Image'].includes(node.type)) panel.append(section('Содержимое', [field('Текст', 'text', 'text', { full: true }), ...(node.type === 'Image' ? [field('URL изображения (https)', 'src', 'text', { full: true })] : [])]));
   if (node.type === 'Switch') panel.append(section('Состояние', [field('Включено', 'checked', 'checkbox')]));
@@ -410,17 +446,18 @@ function renderDiff() {
   $('diffList').replaceChildren();
   if (!changes.length) $('diffList').append(el('div', 'empty', 'Правок пока нет. Выбери элемент в правом макете или в дереве.'));
   for (const change of changes) {
-    const row = el('div', 'diff-row'); const format = v => v === null ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v);
-    row.append(el('code', '', `${change.id || 'Экран'} · ${change.property || change.operation}`), el('span', 'old', format(change.before)), el('span', '', '→ ' + format(change.after))); $('diffList').append(row);
+    const row = el('div', 'diff-row'); const format = v => change.property==='layout' && v ? `${v.mode==='auto'?'Автоматическая':'Свободная'} · ${Object.keys(v.frames||{}).length} позиций` : v === null ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+    row.append(el('code', '', `${change.id || 'Экран'} · ${change.property==='layout'?'Компоновка':change.property || change.operation}`), el('span', 'old', format(change.before)), el('span', '', '→ ' + format(change.after))); $('diffList').append(row);
   }
 }
-function render() { renderTree(); renderPreview(); renderInspector(); renderDiff(); $('undo').disabled = !history.past.length; $('redo').disabled = !history.future.length; }
+function render() { $('layoutMode').value=freeMode()?'free':'auto'; renderTree(); renderPreview(); renderInspector(); renderDiff(); $('undo').disabled = !history.past.length; $('redo').disabled = !history.future.length; }
 function download(value, filename) { const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2) + '\n'], { type: 'application/json' })); const a = el('a'); a.href = url; a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 function historyAction(action) {
   history[action](); localSave(); render(); clearTimeout(draftTimer); draftTimer = setTimeout(() => queueSave().catch(error => notice(error.message, true)), 500);
 }
 $('undo').onclick = () => historyAction('undo'); $('redo').onclick = () => historyAction('redo');
-$('reset').onclick = () => { changed(clone(baseline)); notice('Правки сброшены. Undo вернёт предыдущий вариант.'); };
+$('reset').onclick = () => { changed(clone(baseline),false,true); notice('Правки сброшены. Undo вернёт предыдущий вариант.'); };
+$('layoutMode').onchange=()=>{const next=clone(doc()); next.layout=$('layoutMode').value==='free'?{mode:'free',frames:captureFrames()}:{mode:'auto'}; changed(next); notice(freeMode()?'Свободный режим: размеры не сдвигают соседей.':'Автоматическая компоновка: размеры влияют на соседей.');};
 $('zoom').onchange = () => { if ($('zoom').value !== 'fit') scale = Number($('zoom').value); renderPreview(); };
 $('compare').onclick = () => { $('beforeStage').hidden = false; $('compare').classList.add('active'); $('single').classList.remove('active'); renderPreview(); };
 $('single').onclick = () => { $('beforeStage').hidden = true; $('single').classList.add('active'); $('compare').classList.remove('active'); renderPreview(); };
