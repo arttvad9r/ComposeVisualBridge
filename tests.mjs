@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { shiftedOffsets, resizeRect } from './public/geometry.mjs';
 import assert from 'node:assert/strict';
 import { readFile, mkdtemp, readdir, mkdir, rename, rmdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -112,4 +113,29 @@ test('human report includes source, missing links and conservative legacy mode',
   assert.match(report,/Снимок для согласования/); assert.match(report,/Перенос в контейнер/); assert.match(report,/ServerScreen.kt/);
   assert.ok(report.includes('Текст\\n# Заголовок')); assert.ok(!report.includes('Текст\n# Заголовок'));
   assert.match(createReport(changes),/Тестовый снимок/);
+});
+
+test('free movement accepts signed offsets, keeps structure and produces undoable source-aware diff', () => {
+  const edited=clone(demo), entry=indexTree(edited.root).get('connectButton');
+  Object.assign(entry.node.props, shiftedOffsets(entry.node.props, -37.5, 22));
+  validate(edited); assert.equal(entry.node.props.offsetX,-37.5); assert.equal(entry.node.props.offsetY,22);
+  assert.deepEqual([...indexTree(edited.root)].map(([id,e])=>[id,e.parent,e.index]), [...indexTree(demo.root)].map(([id,e])=>[id,e.parent,e.index]));
+  assert.ok(diff(demo,edited).changes.every(c=>c.operation==='property'&&c.source));
+  const history=new History(demo);history.commit(edited);assert.deepEqual(history.undo(),demo);assert.deepEqual(history.redo(),edited);
+  for (const value of [-4001,4001,Infinity,'20']) {entry.node.props.offsetX=value;assert.throws(()=>validate(edited),/допустимо/);}
+  assert.deepEqual(shiftedOffsets({offsetX:3999,offsetY:-3999},20,-20),{offsetX:4000,offsetY:-4000});
+});
+test('resize sides and corners anchor opposite edges at every zoom and clamp dimensions', () => {
+  const rect={left:20,top:40,width:100,height:60};
+  assert.deepEqual(resizeRect(rect,'n',0,15),{left:20,top:55,width:100,height:45});
+  assert.deepEqual(resizeRect(rect,'w',25,0),{left:45,top:40,width:75,height:60});
+  assert.deepEqual(resizeRect(rect,'e',25,90),{left:20,top:40,width:125,height:60});
+  assert.deepEqual(resizeRect(rect,'s',90,-10),{left:20,top:40,width:100,height:50});
+  assert.deepEqual(resizeRect(rect,'nw',25,15),{left:45,top:55,width:75,height:45});
+  for(const direction of ['n','ne','e','se','s','sw','w','nw']) {
+    const next=resizeRect(rect,direction,10000,10000);assert.ok(next.width>=8&&next.width<=4000);assert.ok(next.height>=8&&next.height<=4000);
+    if(direction.includes('w'))assert.equal(next.left+next.width,rect.left+rect.width);
+    if(direction.includes('n'))assert.equal(next.top+next.height,rect.top+rect.height);
+  }
+  for(const scale of [.3,.65,1])assert.deepEqual(resizeRect(rect,'nw',25*scale/scale,15*scale/scale),{left:45,top:55,width:75,height:45});
 });

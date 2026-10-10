@@ -3,7 +3,7 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Compose Visual Bridge</title><link rel="stylesheet" href="/style.css"></head>
 <body>
 <header class="topbar">
-  <div class="brand"><span class="brand-icon">◈</span><div>Compose <strong>Visual Bridge</strong><small>Визуальные правки → агент → код</small></div><span class="version">v0.2</span></div>
+  <div class="brand"><span class="brand-icon">◈</span><div>Compose <strong>Visual Bridge</strong><small>Визуальные правки → агент → код</small></div><span class="version">v0.2.1</span></div>
   <div class="toolbar"><button id="import">Импорт JSON</button><button id="export">Экспорт макета</button><label class="test-mode"><input id="testMode" type="checkbox" checked> Тестовая передача</label><button id="apply" class="primary">Передать агенту <span>↗</span></button><input id="file" type="file" accept=".json,application/json" hidden></div>
 </header>
 <div id="notice" role="status" aria-live="polite"></div>
@@ -12,7 +12,7 @@
   <section class="editor">
     <div class="editorbar"><div class="segmented"><button id="compare" class="active">До / После</button><button id="single">Только макет</button></div><div class="history"><button id="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить">↶</button><button id="redo" title="Повторить (Ctrl+Shift+Z)" aria-label="Повторить">↷</button><button id="reset">Сбросить</button></div><label class="zoom-label">Масштаб <select id="zoom"><option value="fit" selected>Вписать</option><option value="0.55">55%</option><option value="0.65">65%</option><option value="0.8">80%</option><option value="1">100%</option></select></label></div>
     <div class="canvas" id="canvas"><div id="beforeStage" class="stage"><div class="stage-label">ИСХОДНЫЙ <span>Эталон</span></div><div class="phone-slot" id="before"></div></div><div class="stage"><div class="stage-label proposed">ТВОЙ ВАРИАНТ <span id="changeCount">0 изменений</span></div><div class="phone-slot" id="after"></div></div></div>
-    <footer class="editorfoot"><span>Перетаскивай за ⠿ в дереве или сам элемент. Край — перед/после, центр контейнера — внутрь.</span><span id="saveStatus">Загрузка…</span></footer>
+    <footer class="editorfoot"><span>Тяни элемент на макете — перемещение. Ручки по краям — размер. Дерево слева — порядок и вложенность.</span><span id="saveStatus">Загрузка…</span></footer>
   </section>
   <aside class="inspector panel"><div class="panel-title">СВОЙСТВА <span>dp / sp</span></div><div id="inspector"></div></aside>
 </main>

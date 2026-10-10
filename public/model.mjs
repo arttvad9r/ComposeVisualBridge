@@ -1,7 +1,7 @@
 export const TYPES = ['Column', 'Row', 'Box', 'Card', 'Text', 'Button', 'TextField', 'Switch', 'Icon', 'Image', 'Spacer'];
 export const CONTAINERS = ['Column', 'Row', 'Box', 'Card'];
 export const clone = value => JSON.parse(JSON.stringify(value));
-const numeric = { width: [0, 4000], height: [0, 4000], padding: [0, 300], paddingHorizontal: [0, 300], paddingVertical: [0, 300], gap: [0, 300], fontSize: [6, 100], lineHeight: [6, 150], fontWeight: [100, 900], borderWidth: [0, 10], radius: [0, 200], weight: [0, 100], opacity: [0, 1] };
+const numeric = { offsetX: [-4000, 4000], offsetY: [-4000, 4000], width: [0, 4000], height: [0, 4000], padding: [0, 300], paddingHorizontal: [0, 300], paddingVertical: [0, 300], gap: [0, 300], fontSize: [6, 100], lineHeight: [6, 150], fontWeight: [100, 900], borderWidth: [0, 10], radius: [0, 200], weight: [0, 100], opacity: [0, 1] };
 export function validate(doc) {
   if (!doc || doc.schemaVersion !== 1) throw Error('Нужен schemaVersion: 1');
   if (typeof doc.name !== 'string' || !doc.name.trim() || doc.name.length > 200) throw Error('Нужно название макета (до 200 символов)');

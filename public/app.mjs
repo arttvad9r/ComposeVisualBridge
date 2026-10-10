@@ -1,3 +1,4 @@
+import { shiftedOffsets, resizeRect } from './geometry.mjs';
 import { createDrag } from './drag-dnd.mjs';
 import { TYPES, CONTAINERS, clone, validate, indexTree, diff, move, History } from './model.mjs';
 const $ = id => document.getElementById(id);
@@ -84,10 +85,23 @@ function dropOn(event, targetElement, from) {
     else { changed(next); notice(`Перемещено: ${intent.label}. Отменить — Ctrl+Z.`); }
   } catch (error) { notice(error.message, true); }
 }
-let ghost, dragTarget;
+let ghost, dragTarget, visualDrag, resizeCleanup;
 const drag = createDrag({
-  start(id) { dragging = id; ghost = el('div', 'drag-ghost', id); document.body.append(ghost); document.body.classList.add('dragging'); },
+  start(id, point, element) {
+    dragging = id;
+    if (element.closest('#after')) {
+      selected=id; const props=clone(indexTree(doc().root).get(id).node.props);
+      visualDrag={id,element,point,props,offsets:{offsetX:props.offsetX||0,offsetY:props.offsetY||0},scale};
+      $('after').querySelectorAll('[data-node-id]').forEach(n=>n.classList.toggle('selected',n===element));
+      renderTree(); renderInspector(); renderSelectionFrame(); document.body.classList.add('dragging'); return;
+    }
+    ghost = el('div', 'drag-ghost', id); document.body.append(ghost); document.body.classList.add('dragging'); },
   update(id, event) {
+    if (visualDrag) {
+      const gesture=visualDrag; gesture.offsets=shiftedOffsets(gesture.props,(event.clientX-gesture.point.clientX)/gesture.scale,(event.clientY-gesture.point.clientY)/gesture.scale);
+      gesture.element.style.translate=`${gesture.offsets.offsetX}px ${gesture.offsets.offsetY}px`; positionSelectionFrame();
+      $('saveStatus').textContent=`Смещение: ${gesture.offsets.offsetX}, ${gesture.offsets.offsetY} dp`; return;
+    }
     if (!ghost) return;
     ghost.style.left = `${event.clientX + 12}px`; ghost.style.top = `${event.clientY + 12}px`;
     clearDropMarkers();
@@ -97,6 +111,15 @@ const drag = createDrag({
     if (intent) { dragTarget.dataset.drop = intent.kind; dragTarget.dataset.dropAxis = intent.horizontal ? 'horizontal' : 'vertical'; }
   },
   finish(id, event, canceled) {
+    if (visualDrag) {
+      const gesture=visualDrag; visualDrag=null; dragging=null; document.body.classList.remove('dragging');
+      suppressClick=true; setTimeout(()=>{suppressClick=false;},100);
+      if (canceled) {renderPreview(); notice('Перемещение отменено.');}
+      else {const next=clone(doc()); const props=indexTree(next.root).get(id).node.props;
+        for (const key of ['offsetX','offsetY']) if (gesture.offsets[key] !== (props[key]||0)) props[key]=gesture.offsets[key];
+        changed(next); renderPreview(); notice('Элемент перемещён. Отменить — Ctrl+Z.');}
+      return;
+    }
     const target = dragTarget; ghost?.remove(); ghost = null; dragTarget = null;
     document.body.classList.remove('dragging'); clearDropMarkers(); dragging = null;
     suppressClick = true; setTimeout(() => { suppressClick = false; }, 100);
@@ -155,6 +178,7 @@ function renderNode(node, editable, parentType) {
   if (p.color) n.style.color = p.color;
   if (p.background) n.style.background = p.background;
   if (p.opacity !== undefined) n.style.opacity = p.opacity;
+  if (p.offsetX || p.offsetY) n.style.translate = `${p.offsetX || 0}px ${p.offsetY || 0}px`;
   if (node.type === 'Card' && !p.borderWidth) n.style.boxShadow = '0 3px 14px #26304706';
   if (['Text', 'Icon', 'Button'].includes(node.type)) { n.textContent = p.text || node.type; if (node.type === 'Button') { n.classList.add('button-node'); const label = el('span', 'text-content', n.textContent); n.replaceChildren(label); } }
   if (node.type === 'Icon') n.style.textAlign = 'center';
@@ -177,28 +201,11 @@ function renderNode(node, editable, parentType) {
     n.dataset.editable = 'true'; n.classList.toggle('selected', selected === node.id);
     n.addEventListener('click', event => { event.stopPropagation(); if (!suppressClick && selected !== node.id) select(node.id); });
     wireDrag(n, node.id);
-    if (selected === node.id && node.id !== doc().root.id) {
-      const handle = el('span', 'resize-handle'); handle.title = 'Потяни: размер в dp'; handle.setAttribute('aria-label', 'Изменить размер');
-      handle.addEventListener('pointerdown', event => {
-        event.preventDefault(); event.stopPropagation(); n.draggable = false;
-        const initial = n.getBoundingClientRect(), x = event.clientX, y = event.clientY, id = node.id;
-        let width = initial.width / scale, height = initial.height / scale;
-        const onMove = event => {
-          width = Math.max(8, Math.min(4000, Math.round((initial.width + event.clientX - x) / scale)));
-          height = Math.max(8, Math.min(4000, Math.round((initial.height + event.clientY - y) / scale)));
-          n.style.width = `${width}px`; n.style.height = `${height}px`; n.style.flexGrow = '0'; n.style.flexBasis = 'auto';
-          $('saveStatus').textContent = `${width} × ${height} dp`;
-        };
-        const finish = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', finish); window.removeEventListener('pointercancel', cancel); const next = clone(doc()); const props = indexTree(next.root).get(id).node.props; props.width = Math.round(width); props.height = Math.round(height); delete props.weight; changed(next); };
-        const cancel = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', finish); window.removeEventListener('pointercancel', cancel); renderPreview(); };
-        window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', finish, { once: true }); window.addEventListener('pointercancel', cancel, { once: true });
-      });
-      n.append(handle);
-    }
   }
   return n;
 }
 function renderPreview() {
+  if (resizeCleanup) {resizeCleanup(); resizeCleanup=null;}
   drag.clear($('after'));
   if ($('zoom').value === 'fit') {
     const availableHeight = Math.max(300, $('canvas').clientHeight - 90);
@@ -215,7 +222,83 @@ function renderPreview() {
     const body = el('div', 'phone-body'); body.append(renderNode(value.root, editable)); phone.append(status, body, el('div', 'home-indicator')); slot.replaceChildren(phone);
     slot.querySelectorAll('[data-node-id]').forEach(n => { if (scrollPositions.has(n.dataset.nodeId)) n.scrollTop = scrollPositions.get(n.dataset.nodeId); });
   }
+  renderSelectionFrame();
 }
+const resizeLabels={n:'сверху',ne:'справа сверху',e:'справа',se:'справа снизу',s:'снизу',sw:'слева снизу',w:'слева',nw:'слева сверху'};
+function selectedPreview() { return [...$('after').querySelectorAll('[data-node-id]')].find(n=>n.dataset.nodeId===selected); }
+function positionSelectionFrame() {
+  const frame=$('after').querySelector('.selection-frame'), node=selectedPreview(); if(!frame||!node)return;
+  const rect=node.getBoundingClientRect(), slot=$('after').getBoundingClientRect();
+  Object.assign(frame.style,{left:`${rect.left-slot.left}px`,top:`${rect.top-slot.top}px`,width:`${rect.width}px`,height:`${rect.height}px`});
+}
+function renderSelectionFrame() {
+  $('after').querySelector('.selection-frame')?.remove();
+  if(selected===doc().root.id||!selectedPreview())return;
+  const frame=el('div','selection-frame');
+  for(const [direction,label] of Object.entries(resizeLabels)) {
+    const handle=el('button','resize-handle');handle.type='button';handle.dataset.direction=direction;
+    handle.title=`Изменить размер ${label}`;handle.setAttribute('aria-label',handle.title);
+    handle.addEventListener('click',event=>event.stopPropagation());
+    handle.addEventListener('pointerdown',event=>{
+      if(event.button!==0||dragging)return; event.preventDefault();event.stopPropagation();
+      beginResize(direction,event);
+    });
+    handle.addEventListener('keydown',event=>{
+      const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[event.key];
+      if(!delta)return;event.preventDefault();event.stopPropagation();
+      const gesture=resizeState(direction), factor=event.shiftKey?10:1;
+      applyResize(gesture,delta[0]*factor,delta[1]*factor);commitResize(gesture);
+      $('after').querySelector(`[data-direction="${direction}"]`)?.focus();
+    });
+    frame.append(handle);
+  }
+  $('after').append(frame);positionSelectionFrame();
+}
+function resizeState(direction) {
+  const element=selectedPreview(), rect=element.getBoundingClientRect(), entry=indexTree(doc().root).get(selected);
+  const parentType=indexTree(doc().root).get(entry.parent)?.node.type;
+  return {id:selected,element,direction,scale,props:clone(entry.node.props),rect:{left:rect.left/scale,top:rect.top/scale,width:rect.width/scale,height:rect.height/scale}, parentType, changed:false};
+}
+function applyResize(gesture,dx,dy) {
+  const {element,direction,props}=gesture, horizontal=/[ew]/.test(direction),vertical=/[ns]/.test(direction);
+  const next=resizeRect(gesture.rect,direction,dx,dy);
+  gesture.changed=(horizontal&&dx!==0)||(vertical&&dy!==0);
+  if(horizontal){element.style.width=`${next.width}px`;element.style.maxWidth='none';}
+  if(vertical)element.style.height=`${next.height}px`;
+  gesture.mainAxis=gesture.parentType==='Row'?horizontal:['Column','Card'].includes(gesture.parentType)&&vertical;
+  if(gesture.mainAxis){element.style.flexGrow='0';element.style.flexBasis='auto';}
+  element.style.translate=`${props.offsetX||0}px ${props.offsetY||0}px`;
+  const actual=element.getBoundingClientRect();
+  // Padding/borders can impose a larger rendered minimum than the requested size.
+  if(horizontal)next.width=Math.round(actual.width/gesture.scale*10)/10;
+  if(vertical)next.height=Math.round(actual.height/gesture.scale*10)/10;
+  if(direction.includes('w'))next.left=gesture.rect.left+gesture.rect.width-next.width;
+  if(direction.includes('n'))next.top=gesture.rect.top+gesture.rect.height-next.height;
+  gesture.offsets=shiftedOffsets(props,next.left-actual.left/gesture.scale,next.top-actual.top/gesture.scale);
+  element.style.translate=`${gesture.offsets.offsetX}px ${gesture.offsets.offsetY}px`;
+  gesture.size=next;positionSelectionFrame();$('saveStatus').textContent=`${next.width.toFixed(1)} × ${next.height.toFixed(1)} dp`;
+}
+function commitResize(gesture) {
+  if(!gesture.changed){renderPreview();return;}
+  const next=clone(doc()), props=indexTree(next.root).get(gesture.id).node.props;
+  if(/[ew]/.test(gesture.direction))props.width=gesture.size.width;
+  if(/[ns]/.test(gesture.direction))props.height=gesture.size.height;
+  if(gesture.mainAxis)delete props.weight;
+  for(const key of ['offsetX','offsetY'])if(gesture.offsets[key] !== (props[key]||0))props[key]=gesture.offsets[key];
+  changed(next);notice('Размер изменён. Отменить — Ctrl+Z.');
+}
+function beginResize(direction,event) {
+  const gesture=resizeState(direction), x=event.clientX,y=event.clientY;
+  const update=event=>{event.preventDefault();applyResize(gesture,(event.clientX-x)/gesture.scale,(event.clientY-y)/gesture.scale);};
+  event.currentTarget.setPointerCapture(event.pointerId);
+  const cleanup=()=>{window.removeEventListener('blur',cancel);window.removeEventListener('pointermove',update);window.removeEventListener('pointerup',finish);window.removeEventListener('pointercancel',cancel);window.removeEventListener('keydown',escape,true);document.body.classList.remove('resizing');};
+  const cancel=()=>{cleanup();resizeCleanup=null;renderPreview();notice('Изменение размера отменено.');};
+  const escape=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();cancel();}};
+  const finish=event=>{if(event.clientX!==x||event.clientY!==y)update(event);cleanup();resizeCleanup=null;commitResize(gesture);};
+  resizeCleanup=cleanup;document.body.classList.add('resizing');
+  window.addEventListener('blur',cancel);window.addEventListener('pointermove',update);window.addEventListener('pointerup',finish,{once:true});window.addEventListener('pointercancel',cancel,{once:true});window.addEventListener('keydown',escape,true);
+}
+$('after').addEventListener('scroll',positionSelectionFrame,true);
 function field(label, key, kind = 'number', options = {}) {
   const node = indexTree(doc().root).get(selected).node, p = node.props, wrapper = el('label', 'prop' + (options.full ? ' full' : ''));
   wrapper.append(el('span', '', label));
@@ -229,7 +312,7 @@ function field(label, key, kind = 'number', options = {}) {
     sizeMode = el('select'); sizeMode.setAttribute('aria-label', `${label}: режим`);
     for (const [value, labelText] of [['','По умолчанию'],['auto','По содержимому'],['fill','Заполнить место'],['fixed','Точный размер']]) { const option = el('option','',labelText); option.value=value; sizeMode.append(option); }
     sizeMode.value = typeof p[key] === 'number' ? 'fixed' : p[key] ?? '';
-    input = el('input'); input.type='number'; input.min=0; input.max=4000; input.step=1; input.placeholder='Число · dp'; input.value=typeof p[key] === 'number' ? p[key] : ''; input.hidden=sizeMode.value !== 'fixed';
+    input = el('input'); input.type='number'; input.min=0; input.max=4000; input.step='any'; input.placeholder='Число · dp'; input.value=typeof p[key] === 'number' ? p[key] : ''; input.hidden=sizeMode.value !== 'fixed';
     sizeMode.addEventListener('change', () => updateProperty(key, sizeMode.value === 'fixed' ? 100 : sizeMode.value || undefined));
     wrapper.classList.add('full'); wrapper.append(sizeMode);
   } else if (kind === 'text') {
@@ -296,10 +379,10 @@ function renderInspector() {
     sizes.append(field('Доля свободного места', 'weight', 'number', {max:100,step:.1,full:true}), el('p','prop-help', 'Необязательно. Делит оставшееся место между соседями: 1 и 1 — поровну, 1 и 2 — одна треть и две трети. В Row влияет на ширину, в Column — на высоту. Пусто или 0 — не участвовать.'));
   }
   panel.append(sizes);
-  panel.append(section('Расположение', [field(container ? 'Выравнивание детей' : 'Положение элемента', 'align', ['start', 'center', 'end', 'stretch'], { full: true, labels:{start:'В начале',center:'По центру',end:'В конце',stretch:'Растянуть'} }), ...(container ? [field('Распределение', 'justify', ['start', 'center', 'end', 'space-between'], { full: true, labels:{start:'В начале',center:'По центру',end:'В конце','space-between':'Равные промежутки'} })] : []), field('Отступ внутри · dp', 'padding'), ...(container ? [field('Между детьми · dp', 'gap')] : []), field('Отступ по горизонтали · dp', 'paddingHorizontal'), field('Отступ по вертикали · dp', 'paddingVertical'), ...(container ? [field('Прокрутка содержимого', 'scrollable', 'checkbox', {full:true})] : [])]));
+  panel.append(section('Расположение', [field('Смещение по горизонтали · dp','offsetX','number',{min:-4000,max:4000,step:.1}),field('Смещение по вертикали · dp','offsetY','number',{min:-4000,max:4000,step:.1}),field(container ? 'Выравнивание детей' : 'Положение элемента', 'align', ['start', 'center', 'end', 'stretch'], { full: true, labels:{start:'В начале',center:'По центру',end:'В конце',stretch:'Растянуть'} }), ...(container ? [field('Распределение', 'justify', ['start', 'center', 'end', 'space-between'], { full: true, labels:{start:'В начале',center:'По центру',end:'В конце','space-between':'Равные промежутки'} })] : []), field('Отступ внутри · dp', 'padding'), ...(container ? [field('Между детьми · dp', 'gap')] : []), field('Отступ по горизонтали · dp', 'paddingHorizontal'), field('Отступ по вертикали · dp', 'paddingVertical'), ...(container ? [field('Прокрутка содержимого', 'scrollable', 'checkbox', {full:true})] : [])]));
   panel.append(section('Оформление', [field('Радиус · dp', 'radius', 'number', { max: 200 }), field('Фон', 'background', 'color'), field('Обводка · dp', 'borderWidth', 'number', {max:10,step:.5}), field('Цвет обводки', 'borderColor', 'color')]));
   if (entry.parent) {
-    const controls = section('Перемещение'); controls.append(el('p','prop-help','Перетащите строку за ⠿ слева или сам элемент макета. Линия показывает место вставки. Центр контейнера — перенос внутрь; Shift также переносит внутрь. Здесь можно переместить кнопками. Свободных координат пока нет.'));
+    const controls = section('Перемещение'); controls.append(el('p','prop-help','На макете тяните сам элемент для свободного перемещения. Для изменения порядка или вложенности перетащите строку за ⠿ слева. Линия показывает место вставки. Центр контейнера — перенос внутрь; Shift также переносит внутрь. Здесь можно переместить кнопками. Свободных координат пока нет.'));
     const wrapper = el('label', 'prop'); wrapper.append(el('span', '', 'Родитель'));
     const input = el('select'); input.id = 'parentSelect';
     const descendants = indexTree(node);
