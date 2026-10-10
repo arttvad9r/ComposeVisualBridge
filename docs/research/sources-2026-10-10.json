@@ -1,0 +1,290 @@
+{
+  "checked_on": "2026-10-10",
+  "method": "GitHub public API, pinned raw files, primary documentation; no execution",
+  "repositories": [
+    {
+      "repository": "ComposeFlow/ComposeFlow",
+      "url": "https://github.com/ComposeFlow/ComposeFlow",
+      "branch": "main",
+      "commit": "3347013354285e6103a9a693aff5f77b74e37912",
+      "pushed_at": "2026-06-01T05:31:34Z",
+      "archived": false,
+      "github_detected_license": "NOASSERTION",
+      "tree_truncated": false,
+      "retrieved_files": [
+        "README.md",
+        "LICENSE",
+        "ARCHITECTURE.md",
+        "NOTICE",
+        "core/model/src/commonMain/kotlin/io/composeflow/model/CodeGenerator.kt",
+        "core/model/src/commonMain/kotlin/io/composeflow/model/parameter/TextTrait.kt"
+      ]
+    },
+    {
+      "repository": "GrapesJS/grapesjs",
+      "url": "https://github.com/GrapesJS/grapesjs",
+      "branch": "dev",
+      "commit": "cdfc2190afae34c08fa414002f3d94433fc40cbb",
+      "pushed_at": "2026-10-06T07:20:33Z",
+      "archived": false,
+      "github_detected_license": "NOASSERTION",
+      "tree_truncated": false,
+      "retrieved_files": [
+        "LICENSE",
+        "README.md",
+        "packages/core/LICENSE"
+      ]
+    },
+    {
+      "repository": "Manavarya09/moldui",
+      "url": "https://github.com/Manavarya09/moldui",
+      "branch": "main",
+      "commit": "18e00247c9a837b9140fe42df37bbd8cca3e945c",
+      "pushed_at": "2026-06-20T19:07:51Z",
+      "archived": false,
+      "github_detected_license": "MIT",
+      "tree_truncated": false,
+      "retrieved_files": [
+        "LICENSE",
+        "README.md",
+        "package.json",
+        "src/differ.js",
+        "src/proxy.js",
+        "src/mapper.js",
+        "src/undo.js",
+        "src/inject/editor.js"
+      ]
+    },
+    {
+      "repository": "SandeepBaskaran/design-mode",
+      "url": "https://github.com/SandeepBaskaran/design-mode",
+      "branch": "main",
+      "commit": "011ba9d3098d136ecc34488aa02d6c8e5a38877f",
+      "pushed_at": "2026-10-07T09:15:21Z",
+      "archived": false,
+      "github_detected_license": "MIT",
+      "tree_truncated": false,
+      "retrieved_files": [
+        "README.md",
+        "LICENSE",
+        "packages/mcp-local/src/feedback-session.ts",
+        "packages/extension/src/inspector/bridge-protocol.ts",
+        "packages/extension/src/content/change-context.ts",
+        "packages/extension/src/content/change-tracker.ts"
+      ]
+    },
+    {
+      "repository": "aidenybai/react-grab",
+      "url": "https://github.com/aidenybai/react-grab",
+      "branch": "main",
+      "commit": "ea4bbec9e80f4802e8ae19ad18431edb9ddbb670",
+      "pushed_at": "2026-08-22T11:34:22Z",
+      "archived": false,
+      "github_detected_license": "MIT",
+      "tree_truncated": false,
+      "retrieved_files": [
+        "LICENSE",
+        "README.md",
+        "packages/react-grab/src/primitives.ts",
+        "packages/react-grab/src/utils/get-element-at-position.ts"
+      ]
+    },
+    {
+      "repository": "atlassian/pragmatic-drag-and-drop",
+      "url": "https://github.com/atlassian/pragmatic-drag-and-drop",
+      "branch": "main",
+      "commit": "b1d41f1ab4fea58eef515145abee3c0cdd3cbfbd",
+      "pushed_at": "2026-10-10T02:46:18Z",
+      "archived": false,
+      "github_detected_license": "NOASSERTION",
+      "tree_truncated": false,
+      "retrieved_files": [
+        "README.md",
+        "LICENSE",
+        "packages/core/LICENSE.md",
+        "packages/hitbox/LICENSE.md",
+        "packages/documentation/LICENSE.md",
+        "packages/hitbox/src/tree-item.ts",
+        "packages/hitbox/src/closest-edge.ts",
+        "packages/hitbox/__tests__/unit/tree-item.spec.ts"
+      ]
+    },
+    {
+      "repository": "benjitaylor/agentation",
+      "url": "https://github.com/benjitaylor/agentation",
+      "branch": "main",
+      "commit": "0e3236eb1a0f5577852ab7bb5121f5dd46d42f1d",
+      "pushed_at": "2026-09-22T02:43:16Z",
+      "archived": false,
+      "github_detected_license": "NOASSERTION",
+      "tree_truncated": false,
+      "retrieved_files": [
+        "README.md",
+        "LICENSE",
+        "mcp/LICENSE",
+        "package/LICENSE",
+        "package/example/public/schema/annotation.v1.1.json",
+        "mcp/src/types.ts",
+        "mcp/src/server/mcp.ts"
+      ]
+    },
+    {
+      "repository": "clauderic/dnd-kit",
+      "url": "https://github.com/clauderic/dnd-kit",
+      "branch": "main",
+      "commit": "e522d9c6a3cbe39e6e980ee3b6fd7a78f238ab94",
+      "pushed_at": "2026-09-12T19:57:38Z",
+      "archived": false,
+      "github_detected_license": "MIT",
+      "tree_truncated": false,
+      "retrieved_files": [
+        "LICENSE",
+        "README.md",
+        "packages/dom/package.json",
+        "packages/dom/tests/pointer-sensor.test.ts",
+        "packages/dom/src/core/sensors/pointer/PointerSensor.ts"
+      ]
+    },
+    {
+      "repository": "daybrush/moveable",
+      "url": "https://github.com/daybrush/moveable",
+      "branch": "master",
+      "commit": "75069102f30c88cd89ecaaa8ca7e5f7434e54807",
+      "pushed_at": "2024-06-03T07:57:45Z",
+      "archived": false,
+      "github_detected_license": "MIT",
+      "tree_truncated": false,
+      "retrieved_files": [
+        "LICENSE",
+        "README.md"
+      ]
+    },
+    {
+      "repository": "hangwin/mcp-chrome",
+      "url": "https://github.com/hangwin/mcp-chrome",
+      "branch": "master",
+      "commit": "f48e71751e00bc09725c7e173423cff4f2ccd12a",
+      "pushed_at": "2026-01-06T13:05:39Z",
+      "archived": false,
+      "github_detected_license": "MIT",
+      "tree_truncated": false,
+      "retrieved_files": [
+        "README.md",
+        "LICENSE",
+        "docs/VisualEditor.md",
+        "app/chrome-extension/entrypoints/web-editor-v2/drag/drag-reorder-controller.ts"
+      ]
+    },
+    {
+      "repository": "khadgi-sujan/retune",
+      "url": "https://github.com/khadgi-sujan/retune",
+      "branch": "main",
+      "commit": "07e055c86267096d4df08c7c64ba90f7a4d4336f",
+      "pushed_at": "2026-04-18T15:23:16Z",
+      "archived": false,
+      "github_detected_license": "NOASSERTION",
+      "tree_truncated": false,
+      "retrieved_files": []
+    },
+    {
+      "repository": "nipunbatra/pulp",
+      "url": "https://github.com/nipunbatra/pulp",
+      "branch": "main",
+      "commit": "e1311fd2cd0c27b00df322a0140fa40b0860fe4d",
+      "pushed_at": "2026-07-19T10:23:57Z",
+      "archived": false,
+      "github_detected_license": null,
+      "tree_truncated": false,
+      "retrieved_files": [
+        "README.md"
+      ]
+    },
+    {
+      "repository": "onlook-dev/onlook",
+      "url": "https://github.com/onlook-dev/onlook",
+      "branch": "main",
+      "commit": "423e2e924366419e418ee049093872d535eea41a",
+      "pushed_at": "2026-08-25T01:06:22Z",
+      "archived": false,
+      "github_detected_license": "Apache-2.0",
+      "tree_truncated": false,
+      "retrieved_files": [
+        "README.md",
+        "LICENSE.md",
+        "packages/parser/package.json",
+        "packages/parser/src/ids.ts",
+        "packages/parser/src/code-edit/move.ts"
+      ]
+    },
+    {
+      "repository": "open-pencil/open-pencil",
+      "url": "https://github.com/open-pencil/open-pencil",
+      "branch": "master",
+      "commit": "1462e07510e1a20f6658322c3008826fa803d219",
+      "pushed_at": "2026-10-10T18:30:48Z",
+      "archived": false,
+      "github_detected_license": "MIT",
+      "tree_truncated": false,
+      "retrieved_files": [
+        "README.md",
+        "LICENSE"
+      ]
+    },
+    {
+      "repository": "prevwong/craft.js",
+      "url": "https://github.com/prevwong/craft.js",
+      "branch": "main",
+      "commit": "23f44f3208ebf78d1632ec4aa7094001f513eb41",
+      "pushed_at": "2025-02-14T09:25:28Z",
+      "archived": false,
+      "github_detected_license": "MIT",
+      "tree_truncated": false,
+      "retrieved_files": [
+        "LICENSE",
+        "README.md"
+      ]
+    },
+    {
+      "repository": "puckeditor/puck",
+      "url": "https://github.com/puckeditor/puck",
+      "branch": "main",
+      "commit": "d1644c3e73beb109436c1a4a1f6a5276304b9ad9",
+      "pushed_at": "2026-10-09T16:18:42Z",
+      "archived": false,
+      "github_detected_license": "MIT",
+      "tree_truncated": false,
+      "retrieved_files": [
+        "LICENSE",
+        "README.md",
+        "packages/core/package.json",
+        "packages/core/store/slices/history.ts",
+        "packages/core/components/DragDropContext/index.tsx"
+      ]
+    },
+    {
+      "repository": "stagewise-io/stagewise",
+      "url": "https://github.com/stagewise-io/stagewise",
+      "branch": "main",
+      "commit": "43c6b252bbded96f37dcec6d858bd346d17f545b",
+      "pushed_at": "2026-10-05T17:48:39Z",
+      "archived": false,
+      "github_detected_license": "AGPL-3.0",
+      "tree_truncated": false,
+      "retrieved_files": [
+        "README.md",
+        "LICENSE"
+      ]
+    },
+    {
+      "repository": "suryanewa/Tuna",
+      "url": "https://github.com/suryanewa/Tuna",
+      "branch": "main",
+      "commit": "28946b5c4385b50ef2ef0fdf8913900990990842",
+      "pushed_at": "2026-06-17T21:10:30Z",
+      "archived": false,
+      "github_detected_license": "NOASSERTION",
+      "tree_truncated": false,
+      "retrieved_files": []
+    }
+  ]
+}

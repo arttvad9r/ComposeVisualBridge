@@ -51,6 +51,8 @@ PORT=4180 BRIDGE_DATA=./data/demo node server.mjs --input ./examples/server-scre
 - [Формат данных и HTTP API](docs/protocol.md): контракт между редактором и агентом.
 - [Инструкция агенту](AGENT.md): подготовка макета и перенос отправленных правок.
 
+- [Исследование аналогов и адаптации кода](docs/research/similar-tools-2026-10-10.md).
+
 ## Проверка
 
 ```sh
