@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "name": "Настройки сервера",
+  "sourceRevision": "demo-only",
+  "state": {"server": "192.168.1.5", "connected": false},
+  "viewport": {"width": 412, "height": 820},
+  "root": {
+    "id": "screen", "type": "Column",
+    "props": {"padding": 24, "gap": 24, "width": "fill", "height": "fill", "background": "#F6F7FB"},
+    "source": {"file": "ServerScreen.kt", "symbol": "ServerScreen", "note": "Демонстрационные ссылки; подключите настоящий проект"},
+    "children": [
+      {"id": "header", "type": "Row", "props": {"width": "fill", "gap": 12, "align": "center"}, "children": [
+        {"id": "back", "type": "Icon", "props": {"text": "‹", "fontSize": 32, "color": "#30384D"}},
+        {"id": "title", "type": "Text", "props": {"text": "Настройки", "fontSize": 26, "color": "#20283D"}}
+      ]},
+      {"id": "intro", "type": "Text", "props": {"text": "Подключите домашний сервер, чтобы управлять сервисами с телефона.", "fontSize": 15, "color": "#72798C", "width": "fill"}},
+      {"id": "serverCard", "type": "Card", "props": {"width": "fill", "padding": 24, "gap": 16, "radius": 24, "background": "#FFFFFF"}, "source": {"file": "ServerScreen.kt", "symbol": "ServerCard", "instance": "ServerScreen/serverCard"}, "children": [
+        {"id": "cardHeading", "type": "Row", "props": {"width": "fill", "gap": 12, "align": "center"}, "children": [
+          {"id": "serverIcon", "type": "Icon", "props": {"text": "▤", "fontSize": 24, "color": "#6754C8"}},
+          {"id": "cardTitle", "type": "Text", "props": {"text": "Домашний сервер", "fontSize": 18, "color": "#20283D"}}
+        ]},
+        {"id": "addressLabel", "type": "Text", "props": {"text": "Адрес сервера", "fontSize": 13, "color": "#72798C"}},
+        {"id": "address", "type": "TextField", "props": {"text": "192.168.1.5", "width": "fill", "height": 52, "radius": 12, "background": "#F6F7FB", "fontSize": 16}, "source": {"file": "ServerScreen.kt", "symbol": "ServerAddressField"}},
+        {"id": "connectButton", "type": "Button", "props": {"text": "Подключиться", "width": "auto", "height": 48, "align": "center", "padding": 16, "radius": 14, "background": "#6754C8", "color": "#FFFFFF", "fontSize": 15}, "source": {"file": "ServerScreen.kt", "symbol": "ConnectButton", "instance": "ServerScreen/serverCard/connectButton"}}
+      ]},
+      {"id": "preferences", "type": "Card", "props": {"width": "fill", "padding": 20, "gap": 18, "radius": 24, "background": "#FFFFFF"}, "children": [
+        {"id": "autoConnectRow", "type": "Row", "props": {"width": "fill", "gap": 8, "align": "center", "justify": "space-between"}, "children": [
+          {"id": "autoConnectText", "type": "Text", "props": {"text": "Автоподключение", "fontSize": 15, "color": "#30384D", "weight": 1}},
+          {"id": "autoConnect", "type": "Switch", "props": {"checked": true}}
+        ]},
+        {"id": "hint", "type": "Text", "props": {"text": "Сервер доступен только в вашей сети или через VPN.", "fontSize": 13, "color": "#72798C", "width": "fill"}}
+      ]}
+    ]
+  }
+}

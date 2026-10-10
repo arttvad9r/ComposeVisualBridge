@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Compose Visual Bridge</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brand-icon">◈</span><div>Compose <strong>Visual Bridge</strong><small>Визуальные правки → агент → код</small></div><span class="version">v0.1</span></div>
+  <div class="toolbar"><button id="import">Импорт JSON</button><button id="export">Экспорт макета</button><button id="apply" class="primary">Передать агенту <span>↗</span></button><input id="file" type="file" accept=".json,application/json" hidden></div>
+</header>
+<div id="notice" role="status" aria-live="polite"></div>
+<main class="workspace">
+  <aside class="layers panel"><div class="panel-title">ЭЛЕМЕНТЫ <span id="count"></span></div><div class="project"><span>▣</span><div id="projectName"></div></div><div id="tree" role="tree" aria-label="Дерево элементов"></div><div class="add-section"><label for="newType">Добавить в выбранный контейнер</label><div class="inline"><select id="newType"></select><button id="add" title="Добавить элемент">＋</button></div></div><div class="sidebar-foot"><span class="dot"></span> Локально · без привязки к агенту</div></aside>
+  <section class="editor">
+    <div class="editorbar"><div class="segmented"><button id="compare" class="active">До / После</button><button id="single">Только макет</button></div><div class="history"><button id="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить">↶</button><button id="redo" title="Повторить (Ctrl+Shift+Z)" aria-label="Повторить">↷</button><button id="reset">Сбросить</button></div><label class="zoom-label">Масштаб <select id="zoom"><option value="fit" selected>Вписать</option><option value="0.55">55%</option><option value="0.65">65%</option><option value="0.8">80%</option><option value="1">100%</option></select></label></div>
+    <div class="canvas" id="canvas"><div id="beforeStage" class="stage"><div class="stage-label">ИСХОДНЫЙ <span>Эталон</span></div><div class="phone-slot" id="before"></div></div><div class="stage"><div class="stage-label proposed">ТВОЙ ВАРИАНТ <span id="changeCount">0 изменений</span></div><div class="phone-slot" id="after"></div></div></div>
+    <footer class="editorfoot"><span>Перетаскивай за ⠿ в дереве или сам элемент. Край — перед/после, центр контейнера — внутрь.</span><span id="saveStatus">Загрузка…</span></footer>
+  </section>
+  <aside class="inspector panel"><div class="panel-title">СВОЙСТВА <span>dp / sp</span></div><div id="inspector"></div></aside>
+</main>
+<section class="changes"><button id="toggleChanges" aria-expanded="false">Изменения для агента <span id="diffBadge">0</span><span class="chevron">⌃</span></button><div id="changesBody" hidden><div class="diff-actions"><button id="exportDiff">Скачать изменения</button><button id="reload">Загрузить с сервера</button></div><div id="diffList"></div></div></section>
+<script type="module" src="/app.mjs"></script>
+</body></html>
