@@ -1,4 +1,4 @@
-import { shiftedOffsets, resizeRect } from './geometry.mjs';
+import { shiftedOffsets, resizeRect, anchoredChildFrames } from './geometry.mjs';
 import { createDrag } from './drag-dnd.mjs';
 import { TYPES, CONTAINERS, clone, validate, indexTree, diff, move, History } from './model.mjs';
 const $ = id => document.getElementById(id);
@@ -290,7 +290,7 @@ function resizeState(direction) {
   const element=selectedPreview(), rect=element.getBoundingClientRect(), entry=indexTree(doc().root).get(selected);
   const parentType=indexTree(doc().root).get(entry.parent)?.node.type;
   const frames=freeMode()?captureFrames():null; if(frames)freezePreview(frames);
-  return {frames,id:selected,element,direction,scale,props:clone(entry.node.props),rect:{left:rect.left/scale,top:rect.top/scale,width:rect.width/scale,height:rect.height/scale}, parentType, changed:false};
+  return {frames,id:selected,element,direction,scale,scrollLeft:element.scrollLeft,scrollTop:element.scrollTop,props:clone(entry.node.props),rect:{left:rect.left/scale,top:rect.top/scale,width:rect.width/scale,height:rect.height/scale}, parentType, changed:false};
 }
 function applyResize(gesture,dx,dy) {
   const {element,direction,props}=gesture, horizontal=/[ew]/.test(direction),vertical=/[ns]/.test(direction);
@@ -309,12 +309,22 @@ function applyResize(gesture,dx,dy) {
   if(direction.includes('n'))next.top=gesture.rect.top+gesture.rect.height-next.height;
   gesture.offsets=shiftedOffsets(props,next.left-actual.left/gesture.scale,next.top-actual.top/gesture.scale);
   element.style.translate=`${gesture.offsets.offsetX}px ${gesture.offsets.offsetY}px`;
+  if(gesture.frames) {
+    const origin=element.getBoundingClientRect();
+    gesture.anchoredFrames=anchoredChildFrames(gesture.frames,gesture.id,
+      origin.left/gesture.scale-gesture.rect.left-(element.scrollLeft-gesture.scrollLeft),
+      origin.top/gesture.scale-gesture.rect.top-(element.scrollTop-gesture.scrollTop));
+    for(const child of element.children) {
+      const frame=gesture.anchoredFrames[child.dataset.nodeId];
+      if(frame?.parent===gesture.id) {child.style.left=`${frame.x}px`;child.style.top=`${frame.y}px`;}
+    }
+  }
   gesture.size=next;positionSelectionFrame();$('saveStatus').textContent=`${next.width.toFixed(1)} × ${next.height.toFixed(1)} dp`;
 }
 function commitResize(gesture) {
   if(!gesture.changed){renderPreview();return;}
   const next=clone(doc()), props=indexTree(next.root).get(gesture.id).node.props;
-  if(gesture.frames)next.layout={mode:'free',frames:gesture.frames};
+  if(gesture.frames)next.layout={mode:'free',frames:gesture.anchoredFrames};
   if(/[ew]/.test(gesture.direction))props.width=gesture.size.width;
   if(/[ns]/.test(gesture.direction))props.height=gesture.size.height;
   if(gesture.mainAxis)delete props.weight;
@@ -393,7 +403,7 @@ function section(title, fields = []) {
 function renderInspector() {
   const map = indexTree(doc().root); if (!map.has(selected)) selected = doc().root.id;
   const entry = map.get(selected), node = entry.node, container = CONTAINERS.includes(node.type), panel = $('inspector'); panel.replaceChildren();
-  panel.append(el('p','prop-help',freeMode()?'Свободная компоновка: размеры и позиции фиксируются. Для размеров по содержимому, заполнения и выравнивания переключитесь на автоматическую компоновку.':'Автоматическая компоновка: Row/Column рассчитывают положение соседей по размерам и выравниванию.'));
+  panel.append(el('p','prop-help',freeMode()?'Свободная компоновка: границы меняются без движения содержимого. Перетаскивание контейнера двигает его вместе с детьми. Для размеров по содержимому, заполнения и выравнивания переключитесь на автоматическую компоновку.':'Автоматическая компоновка: Row/Column рассчитывают положение соседей по размерам и выравниванию.'));
   const intro = el('div'); intro.append(el('div', 'selected-title', node.id), el('span', 'type-tag', node.type)); panel.append(intro);
   if (['Text', 'Button', 'Icon', 'TextField', 'Image'].includes(node.type)) panel.append(section('Содержимое', [field('Текст', 'text', 'text', { full: true }), ...(node.type === 'Image' ? [field('URL изображения (https)', 'src', 'text', { full: true })] : [])]));
   if (node.type === 'Switch') panel.append(section('Состояние', [field('Включено', 'checked', 'checkbox')]));

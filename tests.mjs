@@ -1,5 +1,5 @@
 import test from 'node:test';
-import { shiftedOffsets, resizeRect } from './public/geometry.mjs';
+import { shiftedOffsets, resizeRect, anchoredChildFrames } from './public/geometry.mjs';
 import assert from 'node:assert/strict';
 import { readFile, mkdtemp, readdir, mkdir, rename, rmdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -160,4 +160,19 @@ test('free layout validates geometry and parent links, survives diff and history
   wrong.layout={mode:'free',frames:{missing:{parent:null,x:0,y:0,width:1,height:1}}};assert.throws(()=>validate(wrong),/layout.frames/);
   assert.match(createReport(patch),/Свободная компоновка/);
   assert.match(createReport(diff(demo,automatic)),/Автоматическая компоновка/);
+});
+
+
+test('container resize anchors direct children and nested descendants without cumulative movement', () => {
+  const frames={card:{parent:'screen',x:10,y:20,width:200,height:180},row:{parent:'card',x:24,y:24,width:150,height:40},text:{parent:'row',x:12,y:8,width:80,height:20},other:{parent:'screen',x:10,y:220,width:200,height:50}};
+  const initial=clone(frames), shifted=anchoredChildFrames(frames,'card',15,20);
+  assert.deepEqual(frames,initial);
+  assert.equal(shifted.row.x,9);assert.equal(shifted.row.y,4);
+  assert.deepEqual(shifted.text,frames.text);assert.deepEqual(shifted.other,frames.other);
+  // The parent's new origin + child + grandchild remains the same in screen coordinates.
+  assert.equal(frames.card.x+15+shifted.row.x+shifted.text.x,frames.card.x+frames.row.x+frames.text.x);
+  assert.equal(frames.card.y+20+shifted.row.y+shifted.text.y,frames.card.y+frames.row.y+frames.text.y);
+  assert.deepEqual(anchoredChildFrames(frames,'card',0,0),frames);
+  assert.equal(anchoredChildFrames(frames,'card',-10,-30).row.y,54);
+  assert.deepEqual(anchoredChildFrames(frames,'card',15,20),shifted);
 });
