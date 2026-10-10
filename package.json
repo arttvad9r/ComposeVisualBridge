@@ -1,8 +1,23 @@
 {
   "name": "compose-visual-bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "scripts": {"start": "node server.mjs", "test": "node --test tests.mjs"},
-  "engines": {"node": ">=20"}
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test tests.mjs",
+    "build": "node scripts/build.mjs",
+    "prestart": "npm run build",
+    "pretest": "npm run build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@dnd-kit/dom": "^0.5.0"
+  },
+  "devDependencies": {
+    "@atlaskit/pragmatic-drag-and-drop": "^4.0.0",
+    "esbuild": "^0.28.2"
+  }
 }

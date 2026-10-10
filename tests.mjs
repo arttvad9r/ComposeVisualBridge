@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, mkdtemp, readdir } from 'node:fs/promises';
+import { readFile, mkdtemp, readdir, mkdir, rename, rmdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { createReport } from './public/report.mjs';
 import { clone, validate, diff, move, History, indexTree } from './public/model.mjs';
 
 const demo = JSON.parse(await readFile(new URL('./examples/server-screen.json', import.meta.url)));
@@ -58,9 +59,14 @@ test('server persists Apply, rejects stale/foreign writes, reloads saved session
   };
   let { child, url } = await start();
   const request = (endpoint, method, body, headers = {}) => fetch(url + endpoint, { method, headers: { 'Content-Type': 'application/json', ...headers }, ...(body ? { body: JSON.stringify(body) } : {}) });
+  const appResponse = await fetch(url + '/app.mjs'); assert.equal(appResponse.status,200); assert.match(appResponse.headers.get('content-type'), /javascript/);
   let response = await request('/api/session', 'GET'); const state = await response.json(); assert.equal(state.revision, 0);
   const edited = clone(demo); indexTree(edited.root).get('connectButton').node.props.width = 'fill';
   response = await request('/api/apply', 'POST', { revision: 0, document: edited }); assert.equal(response.status, 200); const saved = await response.json();
+  assert.equal(saved.applied.mode, 'test');
+  const report = await readFile(path.join(data, saved.applied.directory, 'report.md'), 'utf8');
+  assert.match(report, /Тестовый снимок/); assert.match(report, /connectButton/);
+  const handoff = await (await request('/api/handoff', 'GET')).json(); assert.deepEqual(handoff.document, edited); assert.equal(handoff.report, report);
   const patch = JSON.parse(await readFile(path.join(data, saved.applied.directory, 'changes.json'), 'utf8')); assert.equal(patch.changes[0].after, 'fill');
   assert.deepEqual(JSON.parse(await readFile(path.join(data, saved.applied.directory, 'proposed.json'), 'utf8')), edited);
   response = await request('/api/draft', 'PUT', { revision: 0, document: demo }); assert.equal(response.status, 409);
@@ -68,9 +74,20 @@ test('server persists Apply, rejects stale/foreign writes, reloads saved session
   const invalid = clone(demo); invalid.root.type = 'Unknown'; response = await request('/api/session', 'PUT', { revision: 1, document: invalid }); assert.equal(response.status, 400);
   response = await request('/api/session', 'GET'); assert.equal((await response.json()).revision, 1);
   const applied = await (await request('/api/applied', 'GET')).json(); assert.deepEqual(applied, patch);
+  response = await request('/api/apply', 'POST', {revision:1, document:demo, mode:'execute'}); assert.equal(response.status,400);
+  response = await request('/api/draft', 'PUT', {revision:1, document:demo}); assert.equal(response.status,200);
+  assert.deepEqual(await (await request('/api/applied','GET')).json(),patch);
+  assert.deepEqual((await (await request('/api/handoff','GET')).json()).document,edited);
+  const statePath = path.join(data,'session.json'), backupPath = path.join(data,'session.backup.json');
+  await rename(statePath,backupPath); await mkdir(statePath);
+  try {
+    response = await request('/api/apply','POST',{revision:2,document:edited,mode:'review'}); assert.equal(response.ok,false);
+    const failed = await (await request('/api/session','GET')).json(); assert.equal(failed.revision,2); assert.equal(failed.applied.directory,saved.applied.directory);
+    assert.deepEqual(await (await request('/api/applied','GET')).json(),patch);
+  } finally { await rmdir(statePath); await rename(backupPath,statePath); }
   const exit = once(child, 'exit'); child.kill(); await exit;
   ({ child, url } = await start());
-  response = await request('/api/session', 'GET'); assert.deepEqual((await response.json()).current, edited);
+  response = await request('/api/session', 'GET'); assert.deepEqual((await response.json()).current, demo);
   assert.ok((await readdir(data)).includes('session.json'));
 });
 
@@ -86,4 +103,13 @@ test('text formatting is independent of element position and survives diff/histo
     const invalid = clone(edited); indexTree(invalid.root).get('connectButton').node.props[key] = 'invalid';
     assert.throws(() => validate(invalid), new RegExp(key));
   }
+});
+
+test('human report includes source, missing links and conservative legacy mode', () => {
+  const edited = move(demo, 'connectButton', 'preferences', 0);
+  indexTree(edited.root).get('connectButton').node.props.text = 'Текст\n# Заголовок';
+  const changes = diff(demo, edited), report = createReport(changes, {mode:'review',directory:'applied-42'});
+  assert.match(report,/Снимок для согласования/); assert.match(report,/Перенос в контейнер/); assert.match(report,/ServerScreen.kt/);
+  assert.ok(report.includes('Текст\\n# Заголовок')); assert.ok(!report.includes('Текст\n# Заголовок'));
+  assert.match(createReport(changes),/Тестовый снимок/);
 });

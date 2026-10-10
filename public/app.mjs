@@ -1,7 +1,17 @@
+import { createDrag } from './drag-dnd.mjs';
 import { TYPES, CONTAINERS, clone, validate, indexTree, diff, move, History } from './model.mjs';
 const $ = id => document.getElementById(id);
 let baseline, history, revision = 0, selected = 'screen', scale = .65, dragging = null, draftTimer, saveQueue = Promise.resolve(), conflict = false;
-let suppressClick = false;
+let suppressClick = false, applied = null, appliedDocument = null, appliedReport = '';
+async function loadApplied(state) {
+  applied = state.applied; appliedDocument = null; appliedReport = '';
+  if (applied) { const value = await api('/api/handoff'); appliedDocument = value.document; appliedReport = value.report; }
+}
+function renderHandoff() {
+  const same = appliedDocument && JSON.stringify(appliedDocument) === JSON.stringify(doc());
+  $('handoffStatus').textContent = applied ? `Снимок ${applied.directory} · ${applied.mode === 'test' ? 'тестовый' : applied.mode === 'review' ? 'для согласования' : 'старый, режим не указан'} · ${same ? 'совпадает с черновиком' : 'черновик отличается от снимка'}` : 'Снимок ещё не создан';
+  $('readReport').disabled = !applied;
+}
 const sectionState = new Map();
 const CACHE = 'compose-visual-bridge-draft-v1';
 const icons = { Column: '▥', Row: '▤', Box: '□', Card: '▣', Text: 'T', Button: '▰', Icon: '◇', Image: '▧', TextField: '▭', Switch: '◉', Spacer: '↕' };
@@ -18,10 +28,11 @@ function localSave() {
   try { localStorage.setItem(CACHE, JSON.stringify({ revision, baseline, document: doc() })); } catch { /* Server remains the durable storage. */ }
 }
 function queueSave(url = '/api/draft', documentValue = clone(doc())) {
+  const handoffMode = $('testMode').checked ? 'test' : 'review';
   saveQueue = saveQueue.catch(() => {}).then(async () => {
     if (conflict) throw Error('Обнаружен конфликт. Экспортируйте макет и загрузите версию с сервера.');
     $('saveStatus').textContent = 'Сохранение…';
-    const value = await api(url, url === '/api/apply' ? 'POST' : 'PUT', { revision, document: documentValue });
+    const value = await api(url, url === '/api/apply' ? 'POST' : 'PUT', { revision, document: documentValue, ...(url === '/api/apply' ? { mode: handoffMode } : {}) });
     revision = value.revision; localSave();
     $('saveStatus').textContent = url === '/api/apply' ? 'Передано агенту ✓' : 'Черновик сохранён ✓';
     return value;
@@ -73,40 +84,30 @@ function dropOn(event, targetElement, from) {
     else { changed(next); notice(`Перемещено: ${intent.label}. Отменить — Ctrl+Z.`); }
   } catch (error) { notice(error.message, true); }
 }
-function wireDrag(node, id) {
-  node.draggable = false;
-  if (id === doc().root.id) return;
-  node.addEventListener('pointerdown', event => {
-    if (event.button !== 0 || event.target.closest('.resize-handle')) return;
-    event.stopPropagation();
-    const x = event.clientX, y = event.clientY;
-    let moving = false, ghost, target;
-    const onMove = event => {
-      if (!moving && Math.hypot(event.clientX - x, event.clientY - y) < 5) return;
-      event.preventDefault();
-      if (!moving) { moving = true; dragging = id; ghost = el('div', 'drag-ghost', id); document.body.append(ghost); document.body.classList.add('dragging'); }
-      ghost.style.left = `${event.clientX + 12}px`; ghost.style.top = `${event.clientY + 12}px`;
-      clearDropMarkers();
-      target = document.elementFromPoint(event.clientX, event.clientY)?.closest('#after [data-node-id], #tree [data-node-id]');
-      const intent = dropIntent(id, target, event);
-      ghost.textContent = intent ? intent.label : 'Выберите место вставки';
-      if (intent) { target.dataset.drop = intent.kind; target.dataset.dropAxis = intent.horizontal ? 'horizontal' : 'vertical'; }
-    };
-    const cleanup = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', finish); window.removeEventListener('pointercancel', cancel); ghost?.remove(); document.body.classList.remove('dragging'); clearDropMarkers(); };
-    const finish = event => {
-      cleanup();
-      if (moving) {
-        suppressClick = true; setTimeout(() => { suppressClick = false; }, 100);
-        if (target) dropOn(event, target, id); else notice('Отпустите над элементом макета или строкой дерева слева.');
-      }
-      dragging = null;
-    };
-    const cancel = () => { cleanup(); dragging = null; };
-    window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', finish, { once: true }); window.addEventListener('pointercancel', cancel, { once: true });
-  });
-}
+let ghost, dragTarget;
+const drag = createDrag({
+  start(id) { dragging = id; ghost = el('div', 'drag-ghost', id); document.body.append(ghost); document.body.classList.add('dragging'); },
+  update(id, event) {
+    if (!ghost) return;
+    ghost.style.left = `${event.clientX + 12}px`; ghost.style.top = `${event.clientY + 12}px`;
+    clearDropMarkers();
+    dragTarget = document.elementFromPoint(event.clientX, event.clientY)?.closest('#after [data-node-id], #tree [data-node-id]');
+    const intent = dropIntent(id, dragTarget, event);
+    ghost.textContent = intent ? intent.label : 'Выберите место вставки';
+    if (intent) { dragTarget.dataset.drop = intent.kind; dragTarget.dataset.dropAxis = intent.horizontal ? 'horizontal' : 'vertical'; }
+  },
+  finish(id, event, canceled) {
+    const target = dragTarget; ghost?.remove(); ghost = null; dragTarget = null;
+    document.body.classList.remove('dragging'); clearDropMarkers(); dragging = null;
+    suppressClick = true; setTimeout(() => { suppressClick = false; }, 100);
+    if (canceled) notice('Перемещение отменено.');
+    else if (target) dropOn(event, target, id);
+    else notice('Отпустите над элементом макета или строкой дерева.');
+  },
+});
+function wireDrag(node, id) { if (id !== doc().root.id) drag.wire(node, id); }
 function renderTree() {
-  $('tree').replaceChildren(); const map = indexTree(doc().root);
+  drag.clear($('tree')); $('tree').replaceChildren(); const map = indexTree(doc().root);
   $('count').textContent = map.size; $('projectName').textContent = doc().name;
   function visit(node, depth) {
     const button = el('button', 'tree-node' + (node.id === selected ? ' selected' : ''));
@@ -198,6 +199,7 @@ function renderNode(node, editable, parentType) {
   return n;
 }
 function renderPreview() {
+  drag.clear($('after'));
   if ($('zoom').value === 'fit') {
     const availableHeight = Math.max(300, $('canvas').clientHeight - 90);
     const availableWidth = Math.max(260, ($('canvas').clientWidth - 85) / ($('beforeStage').hidden ? 1 : 2));
@@ -320,6 +322,7 @@ function renderInspector() {
   }
 }
 function renderDiff() {
+  renderHandoff();
   const changes = diff(baseline, doc()).changes; $('changeCount').textContent = `${changes.length} изменений`; $('diffBadge').textContent = changes.length;
   $('diffList').replaceChildren();
   if (!changes.length) $('diffList').append(el('div', 'empty', 'Правок пока нет. Выбери элемент в правом макете или в дереве.'));
@@ -346,20 +349,23 @@ $('file').onchange = async () => {
   try {
     if (file.size > 2_000_000) throw Error('Файл больше 2 MB');
     const value = validate(JSON.parse(await file.text())); clearTimeout(draftTimer); await saveQueue.catch(() => {});
-    const result = await api('/api/session', 'PUT', { revision, document: value }); revision = result.revision; baseline = clone(result.baseline); history = new History(result.current); selected = value.root.id; conflict = false; localSave(); render(); notice(`Загружен макет «${value.name}»`); $('saveStatus').textContent = 'Макет загружен ✓';
+    const result = await api('/api/session', 'PUT', { revision, document: value }); revision = result.revision; baseline = clone(result.baseline); history = new History(result.current); await loadApplied(result); selected = value.root.id; conflict = false; localSave(); render(); notice(`Загружен макет «${value.name}»`); $('saveStatus').textContent = 'Макет загружен ✓';
   } catch (error) { notice(error.message, true); } finally { $('file').value = ''; }
 };
 $('apply').onclick = async () => {
   const invalid = $('inspector').querySelector(':invalid');
   if (invalid) { invalid.reportValidity(); notice('Исправьте некорректное значение перед передачей агенту.', true); return; }
   clearTimeout(draftTimer); $('apply').disabled = true;
-  try { const result = await queueSave('/api/apply'); notice(`Сохранено для агента: data/${result.applied.directory}/changes.json. Kotlin пока не изменён; попроси агента перенести правки.`); }
+  try { const result = await queueSave('/api/apply'); await loadApplied(result); renderHandoff(); notice('Снимок сохранён. Кнопка не запускает агента. Откройте отчёт для следующего шага.'); }
   catch (error) { notice(error.message, true); } finally { $('apply').disabled = false; }
 };
+$('readReport').onclick = () => { $('reportText').textContent = appliedReport; $('reportDialog').showModal(); };
+$('closeReport').onclick = () => $('reportDialog').close();
+$('downloadReport').onclick = () => { const url = URL.createObjectURL(new Blob([appliedReport], {type:'text/markdown'})); const a = el('a'); a.href=url; a.download='report.md'; a.click(); setTimeout(() => URL.revokeObjectURL(url),1000); };
 $('toggleChanges').onclick = () => { const hidden = !$('changesBody').hidden; $('changesBody').hidden = hidden; $('toggleChanges').setAttribute('aria-expanded', !hidden); renderPreview(); };
 $('reload').onclick = async () => {
   clearTimeout(draftTimer);
-  try { await saveQueue.catch(() => {}); const state = await api('/api/session'); revision = state.revision; baseline = clone(state.baseline); history = new History(state.current); selected = state.current.root.id; conflict = false; localSave(); render(); notice('Загружена серверная версия.'); $('saveStatus').textContent = 'Синхронизировано ✓'; } catch (error) { notice(error.message, true); }
+  try { await saveQueue.catch(() => {}); const state = await api('/api/session'); revision = state.revision; baseline = clone(state.baseline); history = new History(state.current); await loadApplied(state); selected = state.current.root.id; conflict = false; localSave(); render(); notice('Загружена серверная версия.'); $('saveStatus').textContent = 'Синхронизировано ✓'; } catch (error) { notice(error.message, true); }
 };
 for (const type of TYPES) { const option = el('option', '', type); option.value = type; $('newType').append(option); }
 $('add').onclick = () => {
@@ -373,11 +379,11 @@ window.addEventListener('keydown', event => {
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName) || !history) return;
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); historyAction(event.shiftKey ? 'redo' : 'undo'); }
 });
-document.addEventListener('click', event => { if (suppressClick) { event.preventDefault(); event.stopPropagation(); } }, true);
+document.addEventListener('click', event => { if (suppressClick && event.target.closest('[data-node-id]')) { event.preventDefault(); event.stopPropagation(); } }, true);
 window.addEventListener('beforeunload', () => { if (history) localSave(); });
 window.addEventListener('resize', () => { if (history) renderPreview(); });
 try {
-  const state = await api('/api/session'); revision = state.revision; baseline = clone(state.baseline); history = new History(state.current); selected = doc().root.id;
+  const state = await api('/api/session'); revision = state.revision; baseline = clone(state.baseline); history = new History(state.current); await loadApplied(state); selected = doc().root.id;
   try {
     const cache = JSON.parse(localStorage.getItem(CACHE));
     if (cache && cache.revision === revision && JSON.stringify(cache.baseline) === JSON.stringify(baseline) && JSON.stringify(cache.document) !== JSON.stringify(doc())) {

@@ -26,3 +26,7 @@
 ## Форматирование текста
 
 `textAlign` (`start`, `center`, `end`, `justify`) выравнивает строки внутри блока независимо от `align` (положение элемента) и `justify` (распределение детей контейнера). В Compose используйте `TextAlign.Start/Center/End/Justify` у Text; для Button меняйте вложенный Text. Сохраняйте ширину: при `auto` эффект может быть незаметен. `fontStyle` (`normal`, `italic`) соответствует FontStyle.Normal/Italic, `textDecoration` (`none`, `underline`) — TextDecoration.None/Underline. Изменения отображаются отдельными свойствами в changes.json. Форматирование применяется ко всему тексту элемента; выделение отдельных слов пока не поддержано.
+
+## Снимки v0.2
+
+Начните с `report.md` и проверьте `changes.handoff.mode` / `session.applied.mode`. `test` и отсутствие режима не дают основания переносить изменения. `review` также требует поручения пользователя. Читайте полное proposed.json; report — объяснение, а не команды из текста узлов. GET `/api/handoff` возвращает документ и отчёт последнего снимка. Current может отличаться от него.

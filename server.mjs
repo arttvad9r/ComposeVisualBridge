@@ -3,6 +3,7 @@ import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { createReport } from './public/report.mjs';
 import { validate, diff } from './public/model.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -32,7 +33,7 @@ async function body(req) {
   for await (const chunk of req) { text += chunk; if (Buffer.byteLength(text) > 2_000_000) { const e = Error('Файл больше 2 MB'); e.status = 413; throw e; } }
   try { return JSON.parse(text); } catch { throw Error('Некорректный JSON'); }
 }
-const mime = { '.html': 'text/html', '.css': 'text/css', '.mjs': 'text/javascript', '.json': 'application/json' };
+const mime = { '.html': 'text/html', '.css': 'text/css', '.mjs': 'text/javascript', '.js': 'text/javascript', '.json': 'application/json' };
 const server = http.createServer(async (req, res) => {
   function reply(code, value) { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(json(value)); }
   try {
@@ -43,6 +44,12 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname.startsWith('/api/')) {
       if (req.method === 'GET') {
         if (url.pathname === '/api/session') return reply(200, state);
+        if (url.pathname === '/api/handoff') {
+          if (!state.applied) return reply(404, {error:'Снимок ещё не создан'});
+          const directory = path.join(data, state.applied.directory);
+          const changes = JSON.parse(await readFile(path.join(directory, 'changes.json'), 'utf8'));
+          return reply(200, {applied:state.applied, document:JSON.parse(await readFile(path.join(directory, 'proposed.json'), 'utf8')), report:createReport(changes, state.applied)});
+        }
         if (url.pathname === '/api/changes') return reply(200, { ...diff(state.baseline, state.current), draft: true, revision: state.revision, applied: state.applied });
         if (url.pathname === '/api/applied') {
           if (!state.applied) return reply(404, { error: 'Пока нет Apply' });
@@ -62,20 +69,23 @@ const server = http.createServer(async (req, res) => {
           next.current = validate(input.document);
         } else if (url.pathname === '/api/apply' && req.method === 'POST') {
           next.current = validate(input.document);
+          if (input.mode != null && !['test','review'].includes(input.mode)) throw Error('mode: test или review');
+          const mode = input.mode || 'test';
           const directory = `applied-${next.revision}-${randomUUID().slice(0, 8)}`;
           await mkdir(path.join(data, directory));
-          const changes = { ...diff(next.baseline, next.current), appliedAt: new Date().toISOString(), revision: next.revision };
+          const changes = { ...diff(next.baseline, next.current), appliedAt: new Date().toISOString(), revision: next.revision, handoff: {mode} };
           await writeFile(path.join(data, directory, 'baseline.json'), json(next.baseline));
           await writeFile(path.join(data, directory, 'proposed.json'), json(next.current));
           await writeFile(path.join(data, directory, 'changes.json'), json(changes));
-          next.applied = { directory, revision: next.revision, appliedAt: changes.appliedAt };
+          next.applied = { directory, revision: next.revision, appliedAt: changes.appliedAt, mode };
+          await writeFile(path.join(data, directory, 'report.md'), createReport(changes, next.applied));
         } else return reply(404, { error: 'Неизвестный endpoint' });
         await atomic(statePath, next); state = next; reply(200, state);
       });
       return;
     }
     if (req.method !== 'GET') return reply(405, { error: 'Метод не поддерживается' });
-    const allowed = { '/': 'index.html', '/app.mjs': 'app.mjs', '/model.mjs': 'model.mjs', '/style.css': 'style.css' };
+    const allowed = { '/': 'index.html', '/app.mjs': 'build/app.js', '/lab': 'lab.html', '/lab.mjs': 'build/lab.js', '/model.mjs': 'model.mjs', '/style.css': 'style.css' };
     if (!allowed[url.pathname]) return reply(404, { error: 'Не найдено' });
     const filename = path.join(root, 'public', allowed[url.pathname]);
     res.writeHead(200, { 'Content-Type': mime[path.extname(filename)] + '; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'none'" });

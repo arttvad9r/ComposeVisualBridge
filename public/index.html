@@ -3,8 +3,8 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Compose Visual Bridge</title><link rel="stylesheet" href="/style.css"></head>
 <body>
 <header class="topbar">
-  <div class="brand"><span class="brand-icon">◈</span><div>Compose <strong>Visual Bridge</strong><small>Визуальные правки → агент → код</small></div><span class="version">v0.1</span></div>
-  <div class="toolbar"><button id="import">Импорт JSON</button><button id="export">Экспорт макета</button><button id="apply" class="primary">Передать агенту <span>↗</span></button><input id="file" type="file" accept=".json,application/json" hidden></div>
+  <div class="brand"><span class="brand-icon">◈</span><div>Compose <strong>Visual Bridge</strong><small>Визуальные правки → агент → код</small></div><span class="version">v0.2</span></div>
+  <div class="toolbar"><button id="import">Импорт JSON</button><button id="export">Экспорт макета</button><label class="test-mode"><input id="testMode" type="checkbox" checked> Тестовая передача</label><button id="apply" class="primary">Передать агенту <span>↗</span></button><input id="file" type="file" accept=".json,application/json" hidden></div>
 </header>
 <div id="notice" role="status" aria-live="polite"></div>
 <main class="workspace">
@@ -16,6 +16,6 @@
   </section>
   <aside class="inspector panel"><div class="panel-title">СВОЙСТВА <span>dp / sp</span></div><div id="inspector"></div></aside>
 </main>
-<section class="changes"><button id="toggleChanges" aria-expanded="false">Изменения для агента <span id="diffBadge">0</span><span class="chevron">⌃</span></button><div id="changesBody" hidden><div class="diff-actions"><button id="exportDiff">Скачать изменения</button><button id="reload">Загрузить с сервера</button></div><div id="diffList"></div></div></section>
-<script type="module" src="/app.mjs"></script>
+<section class="changes"><button id="toggleChanges" aria-expanded="false">Изменения для агента <span id="diffBadge">0</span><span class="chevron">⌃</span></button><div id="changesBody" hidden><div class="diff-actions"><button id="exportDiff">Скачать изменения</button><button id="reload">Загрузить с сервера</button></div><p id="handoffStatus"></p><button id="readReport" disabled>Отчёт последнего снимка</button><p>Передача сохраняет снимок локально. Агент запускается по вашему поручению.</p><div id="diffList"></div></div></section>
+<dialog id="reportDialog"><button id="closeReport" aria-label="Закрыть отчёт">Закрыть</button> <button id="downloadReport">Скачать отчёт</button><pre id="reportText"></pre></dialog><script type="module" src="/app.mjs"></script>
 </body></html>
