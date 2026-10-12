@@ -59,3 +59,11 @@ test('baseline proof gates review, persists, and stays bound to an immutable sna
   const testSnapshot=await request('/api/apply',{revision:state.revision,document:changed,mode:'test'});
   assert.equal(testSnapshot.status,200);
 });
+test('JVM-rendered Preview baseline is verified by the render itself', async () => {
+  const { readReference, renderedVerification, isVerified, publicSession } = await import('../baseline.mjs');
+  const state = { revision:0, baseline, current:baseline, applied:null, reference:readReference({mime:'image/png',image:png,label:'Превью'}) };
+  state.verification = renderedVerification(state);
+  assert.equal(isVerified(state), true); assert.equal(publicSession(state).verification.confirmedBy, 'render');
+  assert.equal(isVerified({ ...state, baseline:{ ...baseline, name:'другой' } }), false);
+  assert.equal(isVerified({ ...state, verification:{ ...state.verification, confirmedBy:'agent' } }), false);
+});

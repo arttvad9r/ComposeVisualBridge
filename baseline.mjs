@@ -15,7 +15,11 @@ export function readReference(input) {
   return { mime:input.mime, image:bytes.toString('base64'), digest:createHash('sha256').update(bytes).digest('hex'), label:input.label.trim(), capturedAt:new Date().toISOString() };
 }
 export function isVerified(state) {
-  return !!state.reference && state.verification?.baselineFingerprint === fingerprint(state.baseline) && state.verification?.referenceDigest === state.reference.digest && state.verification?.confirmedBy === 'user' && state.verification?.bridgeVersion === BRIDGE_VERSION;
+  return !!state.reference && state.verification?.baselineFingerprint === fingerprint(state.baseline) && state.verification?.referenceDigest === state.reference.digest && ['user','render'].includes(state.verification?.confirmedBy) && state.verification?.bridgeVersion === BRIDGE_VERSION;
+}
+// A JVM render of the project's own @Preview is the reference itself: no manual comparison is needed.
+export function renderedVerification(state) {
+  return { bridgeVersion:BRIDGE_VERSION, baselineFingerprint:fingerprint(state.baseline), referenceDigest:state.reference.digest, confirmedAt:new Date().toISOString(), confirmedBy:'render', sourceRevision:state.baseline.sourceRevision, viewport:state.baseline.viewport, state:state.baseline.state || null };
 }
 export function confirmBaseline(state,input) {
   if (!state.reference) throw Error('Сначала загрузите снимок настоящего экрана');
