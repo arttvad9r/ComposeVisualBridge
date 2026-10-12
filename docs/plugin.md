@@ -72,7 +72,7 @@ node /path/to/plugin/scripts/plugin.mjs stop --project /path/to/android-project
 
 Импорт архивирует исходный макет, черновик, эталон, подтверждение и указатель снимка. «Вернуть предыдущую сессию» восстанавливает их и сохраняет заменённый вариант. Два сервера не могут открыть один каталог данных. После аварийной остановки managed open удаляет только lock мёртвого сервера; lock живого процесса не снимается.
 
-Установка в основной профиль пользователя во время разработки не выполнялась. Для установки архива через CLI после добавления marketplace: `codex plugin add compose-visual-bridge@compose-visual-bridge-local`. Штатный формат описан в [документации OpenAI](https://developers.openai.com/plugins/build/plugins).
+12 октября 2026 года 0.9.2 установлен в основные профили Codex и Claude Code из распакованного архива `~/.local/share/compose-visual-bridge-plugin/0.9.2`; прежний marketplace Codex указывал на 0.8.1. Перед обновлением серверы 0.8.1 остановлены, данные сессий не менялись. setup из обеих установленных копий: ready, JDK 21 и Android SDK найдены. Для установки архива через CLI после добавления marketplace: `codex plugin add compose-visual-bridge@compose-visual-bridge-local`. Штатный формат описан в [документации OpenAI](https://developers.openai.com/plugins/build/plugins).
 
 Подтверждение также связано с bridgeVersion редактора. После обновления новое редактирование требует повторной визуальной сверки; исторический снимок сохраняет прежнюю проверку. Managed open заменяет работающий сервер прежней версии, сохраняя данные.
 
