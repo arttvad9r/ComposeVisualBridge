@@ -65,3 +65,52 @@ fun HomePreview() = AppTheme { HomeScreen(listOf("a"), {}) }
  assert.equal(by('Item-Surface-0').background,'Color.Red');assert.equal(by('Item-Text-0').instance,'dev.composevisualbridge.capture.bridgeSceneInstance');
  assert.ok(!adapter.calls.some(c=>c.symbol==='Label'||c.symbol==='AppTheme'));assert.deepEqual(skipped.map(s=>s.function),['Label']);
 });
+test('Карта связей: функции LazyListScope, рамки BorderStroke и рисуемые элементы',async t=>{
+ const {generateAdapter}=await import('../adapter.mjs');
+ const temp=await mkdtemp(path.join(tmpdir(),'cvb-adapter-'));t.after(()=>rm(temp,{recursive:true,force:true}));await mkdir(temp+'/app/src/main/java/demo',{recursive:true});
+ await writeFile(temp+'/app/src/main/java/demo/Screen.kt',`import androidx.compose.material3.*
+@Composable
+fun DayScreen(checked: Boolean) {
+    LazyColumn {
+        item { LinearProgressIndicator(progress = { 0.5f }) }
+        section("Завтрак", checked)
+    }
+}
+private fun LazyListScope.section(header: String, checked: Boolean) {
+    item { Text(header) }
+    item { Mark(checked) }
+}
+@Composable
+private fun Mark(checked: Boolean) {
+    Surface(border = if (checked) null else BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)) { Text("x") }
+}
+@Preview
+@Composable
+fun DayPreview() { DayScreen(false) }
+`);
+ const {adapter}=await generateAdapter(temp);const by=key=>adapter.calls.find(c=>c.key===key);
+ assert.equal(by('DayScreen-LinearProgressIndicator-0').type,'Image');
+ assert.equal(by('section-Text-0').instance,'dev.composevisualbridge.capture.bridgeSceneInstance');
+ assert.match(by('Mark-Surface-0').border,/^\(if \(checked\) null else BorderStroke\(1\.5\.dp, MaterialTheme\.colorScheme\.outline\)\)\?\.brush/);
+ assert.match(by('Mark-Surface-0').borderWidth,/\?\.width\?\.value \?: 0f$/);
+ const {sceneCalls}=await import('../scene.mjs');assert.deepEqual(sceneCalls(await readFile(temp+'/app/src/main/java/demo/Screen.kt','utf8'),'section').map(c=>c.call),['Text','Mark']);
+});
+test('Карта связей: чипы и неактивные кнопки получают цвета Material 3',async t=>{
+ const {generateAdapter}=await import('../adapter.mjs');
+ const temp=await mkdtemp(path.join(tmpdir(),'cvb-adapter-'));t.after(()=>rm(temp,{recursive:true,force:true}));await mkdir(temp+'/app/src/main/java/demo',{recursive:true});
+ await writeFile(temp+'/app/src/main/java/demo/Screen.kt',`import androidx.compose.material3.*
+@Composable
+fun FormScreen(dark: Boolean, ready: Boolean) {
+    Column(Modifier) {
+        FilterChip(selected = dark, onClick = {}, label = { Text("Dark") })
+        Button(onClick = {}, enabled = ready) { Text("Go") }
+    }
+}
+@Preview
+@Composable
+fun FormPreview() { FormScreen(true, false) }
+`);
+ const {adapter}=await generateAdapter(temp);const by=key=>adapter.calls.find(c=>c.key===key);
+ const chip=by('FormScreen-FilterChip-0');assert.equal(chip.type,'Button');assert.match(chip.background,/^if \(dark\) .*secondaryContainer/);assert.match(chip.borderWidth,/^if \(dark\) 0f else 1f$/);assert.match(chip.shape,/FilterChipDefaults\.shape$/);
+ const button=by('FormScreen-Button-0');assert.match(button.background,/^if \(ready\) .*primary else dev\.composevisualbridge\.capture\.bridgeDisabledContainer\(\)$/);assert.match(button.foreground,/bridgeDisabledContent\(\)$/);
+});

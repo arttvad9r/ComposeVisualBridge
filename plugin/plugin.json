@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "compose-visual-bridge",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "description": "Локальный визуальный редактор Android Compose и передача правок агенту",
   "extensions": {
     "com.openai": {

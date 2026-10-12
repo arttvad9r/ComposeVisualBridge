@@ -9,10 +9,18 @@ const hash=value=>createHash('sha256').update(value).digest('hex');
 const TYPES={__proto__:null,Text:'Text',Column:'Column',LazyColumn:'Column',Row:'Row',LazyRow:'Row',Box:'Box',Surface:'Box',Scaffold:'Box',
  Card:'Card',ElevatedCard:'Card',OutlinedCard:'Card',Button:'Button',FilledTonalButton:'Button',ElevatedButton:'Button',OutlinedButton:'Button',TextButton:'Button',
  IconButton:'Button',FloatingActionButton:'Button',ExtendedFloatingActionButton:'Button',Spacer:'Spacer',TextField:'TextField',OutlinedTextField:'TextField',
- Switch:'Switch',Icon:'Image',Image:'Image'};
+ FilterChip:'Button',InputChip:'Button',AssistChip:'Button',SuggestionChip:'Button',
+ Switch:'Switch',Icon:'Image',Image:'Image',
+ // Drawn-only controls: the editor shows the rendered pixels of the call.
+ LinearProgressIndicator:'Image',CircularProgressIndicator:'Image',Checkbox:'Image',RadioButton:'Image',Slider:'Image',
+ HorizontalDivider:'Image',VerticalDivider:'Image',Divider:'Image'};
 const CONTAINERS=new Set(['Column','Row','Box','Card']);
 const M3='androidx.compose.material3.MaterialTheme.colorScheme.';
 // Material 3 defaults when the call does not set colors explicitly: [background, content].
+// Material 3 default shapes when the call does not pass `shape`.
+const SHAPES={__proto__:null,Card:'CardDefaults.shape',ElevatedCard:'CardDefaults.elevatedShape',OutlinedCard:'CardDefaults.outlinedShape',
+ Button:'ButtonDefaults.shape',FilledTonalButton:'ButtonDefaults.filledTonalShape',ElevatedButton:'ButtonDefaults.elevatedShape',OutlinedButton:'ButtonDefaults.outlinedShape',
+ TextButton:'ButtonDefaults.textShape',FilterChip:'FilterChipDefaults.shape',InputChip:'InputChipDefaults.shape',AssistChip:'AssistChipDefaults.shape',SuggestionChip:'SuggestionChipDefaults.shape',FloatingActionButton:'FloatingActionButtonDefaults.shape',ExtendedFloatingActionButton:'FloatingActionButtonDefaults.extendedFabShape'};
 const DEFAULTS={__proto__:null,Surface:['surface'],Scaffold:['background'],Card:['surfaceContainerHighest'],ElevatedCard:['surfaceContainerLow'],OutlinedCard:['surface'],
  Button:['primary','onPrimary'],FilledTonalButton:['secondaryContainer','onSecondaryContainer'],ElevatedButton:['surfaceContainerLow','primary'],
  OutlinedButton:[null,'primary'],TextButton:[null,'primary'],FloatingActionButton:['primaryContainer','onPrimaryContainer'],ExtendedFloatingActionButton:['primaryContainer','onPrimaryContainer']};
@@ -27,7 +35,10 @@ function matching(t){
 export function kotlinFunctions(code){
  const t=kotlinTokens(code),{map,back}=matching(t),result=[];
  for(let i=0;i<t.length;i++){
-  if(t[i].v!=='fun'||!/^[A-Za-z_]\w*$/.test(t[i+1]?.v||'')||t[i+2]?.v!=='(')continue;
+  if(t[i].v!=='fun')continue;
+  // Extension functions (`fun LazyListScope.section(`) are recorded with their receiver.
+  const receiver=t[i+2]?.v==='.'&&/^[A-Za-z_]\w*$/.test(t[i+1]?.v||'')?t[i+1].v:null,n=receiver?i+2:i;
+  if(!/^[A-Za-z_]\w*$/.test(t[n+1]?.v||'')||t[n+2]?.v!=='(')continue;
   const annotations=[];let j=i-1;
   while(j>=0){
    if(MODIFIERS.has(t[j].v)){j--;continue;}
@@ -36,12 +47,12 @@ export function kotlinFunctions(code){
    if(t[k-1]?.v==='@'&&/^\w+$/.test(name||'')){annotations.push(name);j=k-2;continue;}
    break;
   }
-  const close=map.get(i+2);let body=close+1,end;
+  const close=map.get(n+2);let body=close+1,end;
   while(body<t.length&&!['{','='].includes(t[body].v)&&t[body].v!=='fun')body++;
   if(t[body]?.v==='{')end=map.get(body);
   else if(t[body]?.v==='='){end=body;while(end+1<t.length&&t[end+1].v!=='fun'&&t[end+1].v!=='@')end=end+1;}
   else continue;
-  result.push({name:t[i+1].v,annotations,composable:annotations.includes('Composable'),preview:annotations.some(a=>/Preview/.test(a)),blockBody:t[body].v==='{',
+  result.push({name:t[n+1].v,receiver,annotations,composable:annotations.includes('Composable'),preview:annotations.some(a=>/Preview/.test(a)),blockBody:t[body].v==='{',
    calls:t.slice(body,end+1).flatMap((v,k,a)=>/^[A-Za-z_]\w*$/.test(v.v)&&['(','{'].includes(a[k+1]?.v)&&a[k-1]?.v!=='.'&&a[k-1]?.v!=='fun'?[v.v]:[])});
  }
  return result;
@@ -65,8 +76,21 @@ function colors(call,source,calls){
  const labels=call.type==='Button'?calls.filter(c=>c.call==='Text'&&call.start<c.start&&c.end<=call.end):[];
  const label=labels.length===1?argument(labels[0],'color'):null;
  // Outlined fields and cards draw a 1dp outline by default.
- const outline=/^Outlined(TextField|Card|Button)$/.test(call.call)&&m3?{border:M3+'outline',borderWidth:'1f'}:{};
- return {...outline,...(explicit?{background:explicit.trim()}:bg&&m3?{background:M3+bg}:{}),...(label?{foreground:label.trim()}:content?{foreground:content.trim()}:fg&&m3?{foreground:M3+fg}:{})};
+ const stroke=argument(call,'border');
+ // An explicit BorderStroke (possibly conditional) is evaluated at runtime by the scene modifier.
+ const outline=stroke?{border:`(${stroke.trim()})?.brush?.let { (it as? androidx.compose.ui.graphics.SolidColor)?.value } ?: androidx.compose.ui.graphics.Color.Unspecified`,borderWidth:`(${stroke.trim()})?.width?.value ?: 0f`}
+  :/^Outlined(TextField|Card|Button)$/.test(call.call)&&m3?{border:M3+'outline',borderWidth:'1f'}:{};
+ const selected=argument(call,'selected')?.trim(),enabled=argument(call,'enabled')?.trim(),none='androidx.compose.ui.graphics.Color.Unspecified';
+ // Chips: a selected chip is filled, an unselected one is outlined (Material 3 defaults).
+ const chip=/^(Filter|Input|Assist|Suggestion)Chip$/.test(call.call)&&m3&&!argument(call,'colors')&&!stroke?(selected
+  ?{background:`if (${selected}) ${M3}secondaryContainer else ${none}`,foreground:`if (${selected}) ${M3}onSecondaryContainer else ${M3}onSurfaceVariant`,border:`if (${selected}) ${none} else ${M3}outline`,borderWidth:`if (${selected}) 0f else 1f`}
+  :{border:M3+'outline',borderWidth:'1f',foreground:M3+'onSurface'}):null;
+ const shape=argument(call,'shape')?.trim()||(m3&&SHAPES[call.call]?'androidx.compose.material3.'+SHAPES[call.call]:null);
+ const result={...(shape?{shape}:{}),...outline,...(explicit?{background:explicit.trim()}:bg&&m3?{background:M3+bg}:{}),...(label?{foreground:label.trim()}:content?{foreground:content.trim()}:fg&&m3?{foreground:M3+fg}:{})};
+ if(chip)Object.assign(result,chip);
+ // A disabled button uses the Material 3 disabled colors whatever its enabled colors are.
+ if(call.type==='Button'&&enabled&&m3){if(result.background)result.background=`if (${enabled}) ${result.background} else dev.composevisualbridge.capture.bridgeDisabledContainer()`;result.foreground=`if (${enabled}) ${result.foreground||none} else dev.composevisualbridge.capture.bridgeDisabledContent()`;}
+ return result;
 }
 
 /** Builds a live/preview adapter from source: screens are the project composables called by @Preview functions. */
@@ -77,7 +101,8 @@ export async function generateAdapter(root,{module=':app'}={}){
  for(const file of files){
   const code=await readFile(path.join(root,file),'utf8');let functions;try{functions=kotlinFunctions(code);}catch{continue;}
   sources[file]={code,functions};
-  for(const fn of functions)if(fn.composable)owners.set(fn.name,owners.has(fn.name)?null:{file,fn});
+  // LazyListScope-style builders emit composable items, so their calls are bound too.
+  for(const fn of functions)if(fn.composable||/Scope$/.test(fn.receiver||''))owners.set(fn.name,owners.has(fn.name)?null:{file,fn});
  }
  const skipped=[],screens=new Set();
  for(const {functions} of Object.values(sources))for(const fn of functions.filter(f=>f.preview))

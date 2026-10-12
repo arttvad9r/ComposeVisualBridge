@@ -26,7 +26,8 @@ function brackets(t) {
 export function sceneCalls(code, symbol) {
   const t = kotlinTokens(code),
     p = brackets(t),
-    headers = t.flatMap((v, i) => (v.v === 'fun' && t[i + 1]?.v === symbol && t[i + 2]?.v === '(' ? [i] : []));
+    // Extension functions (`fun LazyListScope.symbol(`) are indexed at their name, like plain ones.
+    headers = t.flatMap((v, i) => (v.v === 'fun' && t[i + 1]?.v === symbol && t[i + 2]?.v === '(' ? [i] : v.v === 'fun' && t[i + 2]?.v === '.' && t[i + 3]?.v === symbol && t[i + 4]?.v === '(' ? [i + 2] : []));
   if (headers.length !== 1) throw Error('Нужна одна функция ' + symbol);
   const start = p.get(headers[0] + 2) + 1,
     end = p.get(start);
@@ -154,7 +155,7 @@ export async function prepareScene(workspace, adapter) {
       call.args.find(a => a.name === 'modifier') ||
       (call.args[0]?.name === null && /^Modifier\b/.test(call.args[0].value) ? call.args[0] : null);
     const color = call.args.find(a => a.name === 'color');
-    const value = `dev.composevisualbridge.capture.bridgeSceneModifier("${key}", ${modifier?.value || 'androidx.compose.ui.Modifier'}, instance = ${rule.instance ? rule.instance + '.toString()' : '""'}, kind = "${rule.type}"${rule.foreground ? ', foreground = ' + rule.foreground : color ? ', foreground = ' + color.value : ''}${rule.background ? ', background = ' + rule.background : ''}${rule.border ? ', border = ' + rule.border : ''}${rule.borderWidth ? ', borderWidth = ' + rule.borderWidth : ''})`;
+    const value = `dev.composevisualbridge.capture.bridgeSceneModifier("${key}", ${modifier?.value || 'androidx.compose.ui.Modifier'}, instance = ${rule.instance ? rule.instance + '.toString()' : '""'}, kind = "${rule.type}"${rule.foreground ? ', foreground = ' + rule.foreground : color ? ', foreground = ' + color.value : ''}${rule.background ? ', background = ' + rule.background : ''}${rule.border ? ', border = ' + rule.border : ''}${rule.borderWidth ? ', borderWidth = ' + rule.borderWidth : ''}${rule.shape ? ', shape = ' + rule.shape : ''})`;
     edits[rule.file].push(
       modifier
         ? { start: modifier.valueStart, end: modifier.end, text: value }
@@ -246,6 +247,7 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.takeOrElse
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.material3.*
 import androidx.compose.ui.semantics.*
 private val SceneScope = compositionLocalOf { "" }
@@ -254,6 +256,7 @@ private val Foreground = SemanticsPropertyKey<String>("BridgeForeground")
 private val Background = SemanticsPropertyKey<String>("BridgeBackground")
 private val Border = SemanticsPropertyKey<String>("BridgeBorderColor")
 private val BorderWidth = SemanticsPropertyKey<String>("BridgeBorderWidth")
+private val Radius = SemanticsPropertyKey<String>("BridgeRadius")
 private val Bounds = SemanticsPropertyKey<String>("BridgeBounds")
 private val FontScale = SemanticsPropertyKey<String>("BridgeFontScale")
 private val FontScaleCurve = SemanticsPropertyKey<String>("BridgeFontScaleCurve")
@@ -296,9 +299,13 @@ private var InstanceCounter = 0
 // Generated adapters use a remembered slot number: unique per call site, item and loop iteration in one frame.
 val bridgeSceneInstance: String @Composable get() = remember { (++InstanceCounter).toString() }
 private fun hex(color: Color): String = String.format("#%06X", color.toArgb() and 0xFFFFFF)
-@Composable fun bridgeSceneModifier(key: String, modifier: Modifier, instance: String = "", kind: String, foreground: Color = Color.Unspecified, background: Color = Color.Unspecified, border: Color = Color.Unspecified, borderWidth: Float = 0f): Modifier {
+// Material 3 disabled colors, composited so the editor gets an opaque value.
+@Composable fun bridgeDisabledContainer(): Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f).compositeOver(MaterialTheme.colorScheme.surface)
+@Composable fun bridgeDisabledContent(): Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f).compositeOver(MaterialTheme.colorScheme.surface)
+@Composable fun bridgeSceneModifier(key: String, modifier: Modifier, instance: String = "", kind: String, foreground: Color = Color.Unspecified, background: Color = Color.Unspecified, border: Color = Color.Unspecified, borderWidth: Float = 0f, shape: androidx.compose.ui.graphics.Shape? = null): Modifier {
  val identity = SceneScope.current + "/" + key + "/" + instance
  var bounds by remember(identity) { mutableStateOf("") }
+ var radius by remember(identity) { mutableStateOf("") }
  val density = LocalDensity.current
  val fontScale = density.fontScale
  val textLines = CapturedTextLines[identity]
@@ -308,7 +315,7 @@ private fun hex(color: Color): String = String.format("#%06X", color.toArgb() an
  val textStyleMetrics = CapturedTextStyleMetrics[identity]
  val curve = remember(density) { (0..300).joinToString(",") { with(density) { ((it / 2f).sp.toDp().value * 100).roundToInt().toString() } } }
  val fg = foreground.takeOrElse { LocalTextStyle.current.color.takeOrElse { LocalContentColor.current } }
- return Modifier.semantics { this[SourceKey] = identity; this[Bounds] = bounds; this[FontScale] = fontScale.toString(); this[FontScaleCurve] = curve; RobotoHash?.let { this[SystemFontHash] = it }; if (textLines != null) this[TextLines] = textLines; if (textWidths != null) this[TextWidths] = textWidths; if (textAdvance != null) this[TextAdvance] = textAdvance; if (textSize != null) this[TextSize] = textSize; if (textStyleMetrics != null) this[TextStyleMetrics] = textStyleMetrics; if (kind == "Text" || kind == "Button") this[Foreground] = hex(fg); if (background != Color.Unspecified) this[Background] = hex(background); if (border != Color.Unspecified) this[Border] = hex(border); this[BorderWidth] = borderWidth.toString() }.onGloballyPositioned { coordinates -> val position = coordinates.positionInRoot(); bounds = "\${position.x},\${position.y},\${coordinates.size.width},\${coordinates.size.height}" }.then(modifier)
+ return Modifier.semantics { this[SourceKey] = identity; this[Bounds] = bounds; this[FontScale] = fontScale.toString(); this[FontScaleCurve] = curve; RobotoHash?.let { this[SystemFontHash] = it }; if (textLines != null) this[TextLines] = textLines; if (textWidths != null) this[TextWidths] = textWidths; if (textAdvance != null) this[TextAdvance] = textAdvance; if (textSize != null) this[TextSize] = textSize; if (textStyleMetrics != null) this[TextStyleMetrics] = textStyleMetrics; if (kind == "Text" || kind == "Button") this[Foreground] = hex(fg); if (background != Color.Unspecified) this[Background] = hex(background); if (border != Color.Unspecified) this[Border] = hex(border); this[BorderWidth] = borderWidth.toString(); if (radius.isNotEmpty()) this[Radius] = radius }.onGloballyPositioned { coordinates -> val position = coordinates.positionInRoot(); bounds = "\${position.x},\${position.y},\${coordinates.size.width},\${coordinates.size.height}"; (shape as? androidx.compose.foundation.shape.CornerBasedShape)?.let { radius = (it.topStart.toPx(androidx.compose.ui.geometry.Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()), density) / density.density).toString() } }.then(modifier)
 }
 `;
 export async function instrumentScene(scene) {
@@ -439,6 +446,9 @@ export async function bindScene(scene, frame) {
     const text = actual.text || textNode.text;
     if (rule.type === 'TextField' && typeof actual.properties.editableText === 'string') {
       props.text = actual.properties.editableText;
+      // An empty field shows its label or placeholder: the first text drawn inside the field.
+      const hint = !props.text && frame.nodes.find(n => n.parentId === actual.id && typeof n.text === 'string' && n.text);
+      if (hint) props.placeholder = hint.text;
       const n = Number(String(actual.properties.fontSize || '').match(/-?\d+(?:\.\d+)?/)?.[0]);
       if (Number.isFinite(n)) props.fontSize = n;
     }
@@ -527,6 +537,8 @@ export async function bindScene(scene, frame) {
     const shape = actual.properties.shape;
     const corners = [...(shape || '').matchAll(/size = ([\d.]+)\.dp/g)];
     if (corners.length === 4 && corners.every(c => c[1] === corners[0][1])) props.radius = Number(corners[0][1]);
+    // Runtime corner radius of the call's own shape (dp), e.g. CircleShape or a theme shape.
+    if (actual.properties.bridgeRadius !== undefined) props.radius = Math.round(Number(actual.properties.bridgeRadius) * 10) / 10;
     if (rule.type === 'Image') {
       props.src = cropPng(Buffer.from(frame.image, 'base64'), b);
       props.text = actual.text || rule.props?.text || 'Иконка';
