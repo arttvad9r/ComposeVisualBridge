@@ -1,3 +1,11 @@
 data/
 node_modules/
 public/build/
+test-results/
+playwright-report/
+dist/
+.env
+.env.*
+.aws/
+.codex/
+.agents/
