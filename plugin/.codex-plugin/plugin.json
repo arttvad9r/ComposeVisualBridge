@@ -1,0 +1,19 @@
+{
+  "name": "compose-visual-bridge",
+  "version": "0.9.1",
+  "description": "Локальный визуальный редактор Android Compose и передача правок агенту",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Compose Visual Bridge",
+    "shortDescription": "Редактируйте Compose-экраны и передавайте визуальные правки агенту",
+    "brandColor": "#6954c6",
+    "defaultPrompt": [
+      "Открой экран этого проекта в визуальном редакторе"
+    ]
+  },
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/setup/SKILL.md"
+    }
+  }
+}
