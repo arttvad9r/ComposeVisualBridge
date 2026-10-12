@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -40,9 +41,12 @@ fun BridgeLiveHost(content: @Composable () -> Unit) {
     val layer = rememberGraphicsLayer()
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
+    // Чтение счётчика в draw-фазе заставляет перезаписать слой перед снимком.
+    var recordRequest by remember { mutableIntStateOf(0) }
     var message by remember { mutableStateOf("Редактировать экран") }
     Box(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize().drawWithContent {
+            recordRequest
             layer.record { this@drawWithContent.drawContent() }
             drawLayer(layer)
         }) { content() }
@@ -81,7 +85,11 @@ fun BridgeLiveHost(content: @Composable () -> Unit) {
                             .put("children", JSONArray(value.children.map(::node)))
                     }
                     val root = node(owner.unmergedRootSemanticsNode)
+                    // Запись слоя могла устареть или быть сброшена после смены конфигурации.
+                    recordRequest++
+                    repeat(2) { withFrameNanos { } }
                     val image = layer.toImageBitmap().asAndroidBitmap()
+                    if (image.width == 0 || image.height == 0) error("Пустой кадр экрана")
                     val bytes = ByteArrayOutputStream().apply {
                         check(image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, this))
                     }.toByteArray()

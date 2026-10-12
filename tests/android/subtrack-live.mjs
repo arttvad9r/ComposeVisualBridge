@@ -100,8 +100,10 @@ async function main(){
   const detail=await capture('detail-light');assert.equal(detail.captured.document.name,'Подписка');await tap(labelled('Назад'));
   await adb('shell','cmd','uimode','night','yes');await pause(1000);
   const dark=await capture('list-dark');assert.equal(dark.captured.document.state.systemTheme,'dark');assert.deepEqual(identities(dark.captured.document),identities(list.captured.document),'Смена темы должна сохранять runtime-идентичность данных');
-  await editor.locator('#refreshScreens').click();await editor.locator('#screenList').selectOption(dark.session.session);await editor.locator('#openScreen').click();await expect(editor.locator('#projectName')).toHaveText('Подписки');
-  await editor.locator('#screenList').selectOption(list.session.session);await editor.locator('#openScreen').click();await expect(editor.locator('#undo')).toBeEnabled();
+  // Обе сессии называются «Подписки»: ждём смены сервера, а не заголовка.
+  const openScreen=async session=>{const before=editor.url();await editor.locator('#refreshScreens').click();await editor.locator('#screenList').selectOption(session);await editor.locator('#openScreen').click();await editor.waitForURL(url=>url.toString()!==before);await expect(editor.locator('#saveStatus')).toHaveText('Черновик сохранён ✓');};
+  await openScreen(dark.session.session);
+  await openScreen(list.session.session);await expect(editor.locator('#undo')).toBeEnabled();
   assert.deepEqual((await(await fetch(list.session.url+'/api/session')).json()).current,savedDraft.current);
   await editor.close();await cli('stop','--session',list.session.session);
   const reopened=await cli('open','--session',list.session.session);const restored=await(await fetch(reopened.url+'/api/session')).json();assert.deepEqual(restored.current,savedDraft.current);
