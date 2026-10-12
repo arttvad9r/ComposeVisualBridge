@@ -1,0 +1,10 @@
+{
+  "name": "compose-visual-bridge-local",
+  "interface": { "displayName": "Compose Visual Bridge" },
+  "plugins": [{
+    "name": "compose-visual-bridge",
+    "source": { "source": "local", "path": "./dist/compose-visual-bridge" },
+    "policy": { "installation": "AVAILABLE", "authentication": "ON_USE" },
+    "category": "Developer tools"
+  }]
+}
