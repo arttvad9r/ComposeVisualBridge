@@ -304,7 +304,10 @@ function renderNode(node, editable, parentType, frames, fontScale=1, parentAlign
   if (node.type === 'Switch') { n.classList.add('switch-node'); n.classList.toggle('checked', Boolean(p.checked)); }
   if (node.type === 'Spacer') { if (p.height === undefined) n.style.height = '16px'; }
   if (node.type === 'Image') {
-    if (p.src) { const image = el('img', 'image-node'); image.src = p.src; image.alt = p.text || 'Изображение'; image.style.width = '100%'; image.style.height = '100%'; n.append(image); }
+    if (p.src) { const image = el('img', 'image-node'); image.src = p.src; image.alt = p.text || 'Изображение'; image.style.width = '100%'; image.style.height = '100%';
+      // A minimum height only for images without a size; captured icons keep their own frame.
+      if (p.height === undefined && !frames?.[node.id]) image.style.minHeight = '50px';
+      n.append(image); }
     else { n.textContent = '▧ Изображение'; n.style.background ||= '#e9e6f4'; n.style.padding ||= '24px'; }
   }
   const label=n.querySelector('.text-content');
