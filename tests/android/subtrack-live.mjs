@@ -23,9 +23,9 @@ export function uiPoint(nodes,predicate){
 
 async function main(){
  const options=Object.fromEntries(process.argv.slice(2).reduce((entries,value,index,args)=>index%2?entries:[...entries,[value,args[index+1]]],[]));
- if(!options['--workspace']||!options['--output']||Object.keys(options).some(key=>!['--workspace','--output','--avd'].includes(key)))throw Error('Нужны --workspace <подготовленная копия> --output <новый каталог> [--avd oneplus-13s-2]');
+ if(!options['--workspace']||!options['--output']||Object.keys(options).some(key=>!['--workspace','--output','--avd'].includes(key)))throw Error('Нужны --workspace <подготовленная копия> --output <новый каталог> [--avd oneplus-13s-1]');
  await access('/dev/kvm',constants.R_OK|constants.W_OK);
- const workspace=path.resolve(options['--workspace']),output=path.resolve(options['--output']),avd=options['--avd']||'oneplus-13s-2';
+ const workspace=path.resolve(options['--workspace']),output=path.resolve(options['--output']),avd=options['--avd']||'oneplus-13s-1';
  if(!/^[a-z0-9-]+$/.test(avd))throw Error('Некорректное имя AVD');
  const manifest=JSON.parse(await readFile(path.join(workspace,'.bridge-live.json'),'utf8'));
  const native=JSON.parse(await readFile(path.join(workspace,'.bridge-native-workspace.json'),'utf8'));
@@ -35,19 +35,27 @@ async function main(){
  const env={...process.env,EMU_OWNER_PID:String(process.pid),ANDROID_HOME:manifest.sdk,PATH:manifest.sdk+'/emulator:'+manifest.sdk+'/platform-tools:'+process.env.PATH,BRIDGE_HOME:output+'/sessions'};
  const plugin=fileURLToPath(new URL('../../scripts/plugin.mjs',import.meta.url));
  let serial,attempted=false,browser,night,failed;
- const evidence={workspace,project:native.sourceProject,avd,captures:[],nativeScenarioPassed:false,visualAccepted:false};
+ const evidence={workspace,project:native.sourceProject,avd,captures:[],retries:[],nativeScenarioPassed:false,visualAccepted:false};
  const run=async(command,args,timeout=30000)=>{const result=await exec(command,args,{env,timeout,maxBuffer:32*1024*1024});return result.stdout;};
  const cli=async(...args)=>JSON.parse(await run(process.execPath,[plugin,...args,'--project',native.sourceProject],90000));
  const adb=(...args)=>{assert.match(serial||'',/^emulator-\d+$/);return run(path.join(manifest.sdk,'platform-tools/adb'),['-s',serial,...args]);};
  const dump=async()=>{await adb('shell','uiautomator','dump','/sdcard/cvb-live-ui.xml');const xml=await adb('shell','cat','/sdcard/cvb-live-ui.xml');await writeFile(output+'/last-ui.xml',xml);return uiNodes(xml);};
  const tap=async(predicate)=>{let error;for(let i=0;i<12;i++){try{const point=uiPoint(await dump(),predicate);await adb('shell','input','tap',...point.map(String));await pause(500);return;}catch(e){error=e;await pause(500);}}throw error;};
  const labelled=label=>node=>node.text===label||node['content-desc']===label;
+ // After saving, Subtrack sometimes returns to the list on its own; press Back only when needed.
+ const backToList=async()=>{for(let i=0;i<12;i++){const nodes=await dump();if(nodes.some(labelled('Добавить подписку')))return;const back=nodes.filter(labelled('Назад')).filter(node=>node.enabled!=='false');if(back.length===1)await adb('shell','input','tap',...uiPoint(back,()=>true).map(String));await pause(500);}throw Error('Не удалось вернуться к списку подписок');};
  const capture=async(label)=>{
   console.log('Захват: '+label);
   await adb('shell','run-as',manifest.applicationId,'rm','-f','files/compose-visual-bridge-live.json');
-  await tap(node=>/^(Редактировать экран|Экран сохранён для редактора)$/.test(node.text||'')||/^(Редактировать экран|Экран сохранён для редактора)$/.test(node['content-desc']||''));
+  // The helper reports a blank frame on the button, like the user would see it; retry the tap
+  // up to three times and keep every failed attempt in the evidence.
+  const button=node=>/^(Редактировать экран|Экран сохранён для редактора|Ошибка: .*)$/.test(node['content-desc']||'');
   let captured,lastError;
-  for(let i=0;i<20;i++){try{captured=await captureLive(workspace);break;}catch(e){lastError=e;await pause(500);}}
+  for(let attempt=1;attempt<=3&&!captured;attempt++){
+   if(attempt>1){const state=(await dump()).find(button)?.['content-desc']||null;evidence.retries.push({label,attempt:attempt-1,button:state,error:lastError?.message});await pause(2000);}
+   await tap(button);
+   for(let i=0;i<20;i++){try{captured=await captureLive(workspace);break;}catch(e){lastError=e;await pause(500);}}
+  }
   if(!captured){
    // Сохранять настоящий кадр и semantics до bind: при отказе импортера
    // устройство освобождается, а причина остаётся воспроизводимой без ADB.
@@ -81,7 +89,7 @@ async function main(){
   for(let i=0;i<2;i++){
    await tap(labelled('Добавить подписку'));
    for(const [index,value] of [[0,'BridgeTest'],[1,'100']]){const fields=(await dump()).filter(node=>node.class==='android.widget.EditText');assert.equal(fields.length,3,'Поля формы Subtrack изменились');const point=uiPoint([fields[index]],()=>true);await adb('shell','input','tap',...point.map(String));await adb('shell','input','text',value);await adb('shell','input','keyevent','111');}
-   await adb('shell','input','keyevent','111');await tap(labelled('Сохранить'));await tap(labelled('Назад'));
+   await adb('shell','input','keyevent','111');await tap(labelled('Сохранить'));await backToList();
   }
   const list=await capture('list-light');
   const identities=doc=>Object.entries(doc.compose.bindings).filter(([,binding])=>binding.source.symbol==='SubscriptionCard'&&binding.type==='Text').map(([id,binding])=>({id,identity:binding.runtimeIdentity})).sort((a,b)=>a.id.localeCompare(b.id));
@@ -98,7 +106,11 @@ async function main(){
   const names=(await dump()).filter(labelled('BridgeTest')).sort((a,b)=>Number(a.bounds.match(/\d+/g)[1])-Number(b.bounds.match(/\d+/g)[1]));assert.equal(names.length,2);
   await adb('shell','input','tap',...uiPoint([names[0]],()=>true).map(String));await pause(500);
   const detail=await capture('detail-light');assert.equal(detail.captured.document.name,'Подписка');await tap(labelled('Назад'));
-  await adb('shell','cmd','uimode','night','yes');await pause(1000);
+  // On host-GPU emulators a theme switch with a Compose screen in the foreground leaves the
+  // window black (the original app without Bridge too), so switch while the app is in background.
+  await adb('shell','input','keyevent','KEYCODE_HOME');await pause(1500);
+  await adb('shell','cmd','uimode','night','yes');await pause(3000);
+  await adb('shell','am','start','-n',manifest.applicationId+'/'+manifest.activity);await pause(3000);
   const dark=await capture('list-dark');assert.equal(dark.captured.document.state.systemTheme,'dark');assert.deepEqual(identities(dark.captured.document),identities(list.captured.document),'Смена темы должна сохранять runtime-идентичность данных');
   // Обе сессии называются «Подписки»: ждём смены сервера, а не заголовка.
   const openScreen=async session=>{const before=editor.url();await editor.locator('#refreshScreens').click();await editor.locator('#screenList').selectOption(session);await editor.locator('#openScreen').click();await editor.waitForURL(url=>url.toString()!==before);await expect(editor.locator('#saveStatus')).toHaveText('Черновик сохранён ✓');};
