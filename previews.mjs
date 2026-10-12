@@ -6,6 +6,7 @@ import {prepareScene,instrumentScene,restoreScene,bindScene} from './scene.mjs';
 import {normalizeBuddyFrame} from './native.mjs';
 import {blankPng} from './live.mjs';
 import {writeTextAtomic} from './storage.mjs';
+import {generateAdapter} from './adapter.mjs';
 
 // Test-only dependencies: Robolectric renders on the JVM, Roborazzi captures, the scanner finds @Preview.
 export const PREVIEW_TOOLCHAIN={robolectric:'4.16',roborazzi:'1.46.1',scanner:'0.7.0'};
@@ -30,17 +31,21 @@ tasks.withType<Test>().configureEach {
 
 /** Renders every @Preview of the project copy on the JVM and binds each frame to the adapter's Kotlin calls. */
 export async function capturePreviews({project,output,adapter,module=':app',sdk}){
- if(!['compose-visual-bridge-live-adapter-v1','compose-visual-bridge-scene-adapter-v1'].includes(adapter?.format)||!Array.isArray(adapter.calls))throw Error('Нужен адаптер со связями экранов');
+ if(adapter&&(!['compose-visual-bridge-live-adapter-v1','compose-visual-bridge-scene-adapter-v1'].includes(adapter.format)||!Array.isArray(adapter.calls)))throw Error('Нужен адаптер со связями экранов');
  const tools=await toolchain();if(!tools.jdkHome||tools.jdkMajor<21)throw Error('Нужен JDK 21');
- // The host is only needed for the live overlay; previews call screens directly.
- const sceneAdapter={...structuredClone(adapter),format:'compose-visual-bridge-live-adapter-v1'};
  const {workspace}=await prepare({project,output,module,sdk,liveOnly:true});
+ // Without an explicit adapter the bindings are derived from the copy's Kotlin sources.
+ const generated=adapter?null:await generateAdapter(workspace,{module});
+ if(generated&&!generated.adapter.calls.length)throw Error('Не найдено экранов: нужны @Preview, вызывающие Composable-экраны проекта'+(generated.skipped.length?' ('+generated.skipped.map(s=>s.function+' — '+s.reason).join('; ')+')':''));
+ // The host is only needed for the live overlay; previews call screens directly.
+ const sceneAdapter={...structuredClone(adapter||generated.adapter),format:'compose-visual-bridge-live-adapter-v1'};
  const moduleDir=path.join(workspace,module.slice(1).replaceAll(':','/')),gradle=path.join(moduleDir,'build.gradle.kts');
  const appGradle=await readFile(gradle,'utf8');
  const pkg=appGradle.match(/namespace\s*=\s*"([\w.]+)"/)?.[1];if(!pkg)throw Error('В build.gradle.kts модуля нужен явный namespace');
  const bom=(appGradle.match(/compose-bom:([\w.-]+)"/)||(await readFile(path.join(workspace,'gradle/libs.versions.toml'),'utf8').catch(()=>'')).match(/composeBom\s*=\s*"([\w.-]+)"/))?.[1];
  if(!bom)throw Error('Не найдена версия Compose BOM');
  const frames=path.join(moduleDir,'build/compose-visual-bridge-previews');
+ if(generated){await mkdir(path.join(moduleDir,'build'),{recursive:true});await writeFile(path.join(moduleDir,'build/compose-visual-bridge-adapter.json'),JSON.stringify(generated,null,1));}
  await writeFile(gradle,appGradle+gradleSnippet(bom,pkg,frames));
  const helper=path.join(moduleDir,'src/test/java/dev/composevisualbridge/capture/BridgePreviewCapture.kt');
  await mkdir(path.dirname(helper),{recursive:true});await writeFile(helper,await readFile(new URL('./integrations/android/BridgePreviewCapture.kt',import.meta.url)),{flag:'wx'});
@@ -65,7 +70,7 @@ export async function capturePreviews({project,output,adapter,module=':app',sdk}
    screens.push({document,frame});
   }catch(error){skipped.push({preview:raw.preview,function:raw.function,reason:error.message});}
  }
- await writeTextAtomic(path.join(workspace,'.bridge-previews.json'),JSON.stringify({format:'compose-visual-bridge-previews-v1',revision,screens:screens.map(s=>s.document.name),skipped}));
+ await writeTextAtomic(path.join(workspace,'.bridge-previews.json'),JSON.stringify({format:'compose-visual-bridge-previews-v1',revision,screens:screens.map(s=>s.document.name),skipped,unbound:generated?.skipped||[]}));
  if(!screens.length)throw Error('Ни один Preview не связан с экранами адаптера'+(skipped.length?': '+skipped.map(s=>s.preview+' — '+s.reason).join('; '):'. Добавьте @Preview с тестовыми данными.'));
- return {workspace,screens,skipped};
+ return {workspace,screens,skipped,adapter:sceneAdapter,unbound:generated?.skipped||[]};
 }

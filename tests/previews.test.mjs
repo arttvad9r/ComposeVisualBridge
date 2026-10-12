@@ -31,4 +31,37 @@ for(const [name,frame] of Object.entries(${JSON.stringify(frames)}))fs.writeFile
  assert.equal(await readFile(project+'/app/src/main/java/demo/Screen.kt','utf8'),source);
  assert.equal(await readFile(temp+'/copy/app/src/main/java/demo/Screen.kt','utf8'),source);
  await assert.rejects(capturePreviews({project,output:temp+'/copy2',adapter:{format:'other'}}),/адаптер/);
+ await assert.rejects(capturePreviews({project,output:temp+'/copy3'}),/Не найдено экранов/);
+});
+test('Карта связей строится из исходников: экраны из @Preview, листья без вложенных связей, цвета Material 3',async t=>{
+ const {generateAdapter}=await import('../adapter.mjs');
+ const temp=await mkdtemp(path.join(tmpdir(),'cvb-adapter-'));t.after(()=>rm(temp,{recursive:true,force:true}));await mkdir(temp+'/app/src/main/java/demo',{recursive:true});
+ await writeFile(temp+'/app/src/main/java/demo/Screen.kt',`import androidx.compose.material3.*
+@Composable
+fun HomeScreen(items: List<String>, onBack: () -> Unit) {
+    Scaffold(topBar = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }) { padding ->
+        LazyColumn(Modifier.padding(padding)) { items(items) { Item(it) } }
+        TextButton(onClick = {}) { Label("Удалить"); Text("Удалить", color = MaterialTheme.colorScheme.error) }
+    }
+    if (false) Text("вне корня")
+}
+@Composable
+private fun Item(name: String) { Surface(color = Color.Red) { Text(name) } }
+@Composable
+private fun Label(text: String) { Text(text) }
+@Composable
+fun AppTheme(content: @Composable () -> Unit) { MaterialTheme(content = content) }
+@Preview(name = "Главная")
+@Composable
+fun HomePreview() = AppTheme { HomeScreen(listOf("a"), {}) }
+`);
+ const {adapter,skipped}=await generateAdapter(temp);
+ assert.deepEqual(adapter.screens,['HomeScreen']);
+ const by=key=>adapter.calls.find(c=>c.key===key);
+ assert.equal(by('HomeScreen-Scaffold-0').root,true);assert.equal(by('HomeScreen-Scaffold-0').background,'androidx.compose.material3.MaterialTheme.colorScheme.background');
+ assert.equal(by('HomeScreen-IconButton-0').type,'Box');assert.equal(by('HomeScreen-Icon-0').type,'Image');
+ assert.equal(by('HomeScreen-TextButton-0').type,'Button');assert.equal(by('HomeScreen-TextButton-0').foreground,'MaterialTheme.colorScheme.error');
+ assert.ok(!adapter.calls.some(c=>c.symbol==='HomeScreen'&&c.call==='Text'),'Текст внутри кнопки и вне корня не связывается');
+ assert.equal(by('Item-Surface-0').background,'Color.Red');assert.equal(by('Item-Text-0').instance,'dev.composevisualbridge.capture.bridgeSceneInstance');
+ assert.ok(!adapter.calls.some(c=>c.symbol==='Label'||c.symbol==='AppTheme'));assert.deepEqual(skipped.map(s=>s.function),['Label']);
 });

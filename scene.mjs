@@ -292,6 +292,9 @@ private val CapturedTextLines = mutableStateMapOf<String, String>()
 @Composable fun bridgeSceneScope(key: String, content: @Composable () -> Unit) {
  CompositionLocalProvider(SceneScope provides (SceneScope.current + "/" + key), content = content)
 }
+private var InstanceCounter = 0
+// Generated adapters use a remembered slot number: unique per call site, item and loop iteration in one frame.
+val bridgeSceneInstance: String @Composable get() = remember { (++InstanceCounter).toString() }
 private fun hex(color: Color): String = String.format("#%06X", color.toArgb() and 0xFFFFFF)
 @Composable fun bridgeSceneModifier(key: String, modifier: Modifier, instance: String = "", kind: String, foreground: Color = Color.Unspecified, background: Color = Color.Unspecified, border: Color = Color.Unspecified, borderWidth: Float = 0f): Modifier {
  val identity = SceneScope.current + "/" + key + "/" + instance
@@ -434,6 +437,12 @@ export async function bindScene(scene, frame) {
           }) || actual
         : actual;
     const text = actual.text || textNode.text;
+    if (rule.type === 'TextField' && typeof actual.properties.editableText === 'string') {
+      props.text = actual.properties.editableText;
+      const n = Number(String(actual.properties.fontSize || '').match(/-?\d+(?:\.\d+)?/)?.[0]);
+      if (Number.isFinite(n)) props.fontSize = n;
+    }
+    if (rule.type === 'Switch' && actual.properties.toggleableState) props.checked = actual.properties.toggleableState === 'On';
     if (rule.type === 'Text' || rule.type === 'Button') {
       if (typeof text !== 'string') throw Error('Нет текста ' + rule.call + ' ' + id);
       props.text = text;
