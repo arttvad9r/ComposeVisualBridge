@@ -523,8 +523,18 @@ test('B20: кнопки перестановки сохраняют фокус �
   await expect(page.getByRole('button', { name: '↑ Раньше', exact: true })).toBeFocused();
 });
 
+test('Длинная подпись в дереве не расширяет узкую страницу', async ({ page, bridge }) => {
+  await tree(page, 'second').click();
+  await page.getByLabel('Текст', { exact: true }).fill('Подключите домашний сервер, чтобы управлять сервисами с телефона');
+  await bridge.saved();
+  for (const width of [440, 360]) {
+    await page.setViewportSize({ width, height: 720 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth), `Ширина страницы при ${width}px`).toBe(width);
+  }
+});
+
 test('B21: узкая панель не обрезает русские подписи и поля', async ({ page, bridge }) => {
-  for (const width of [900, 641, 640, 480]) {
+  for (const width of [900, 641, 640, 480, 440, 360]) {
     await page.setViewportSize({ width, height: 720 });
     await tree(page, 'second').click();
     for (const name of ['Размер', 'Расположение', 'Перемещение']) {

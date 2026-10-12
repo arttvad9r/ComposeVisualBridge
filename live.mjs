@@ -3,11 +3,18 @@ import path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
+import {inflateSync} from 'node:zlib';
 import {prepare,build,sourceRevision,toolchain} from './scripts/native-project.mjs';
 import {prepareScene,instrumentScene,restoreScene,bindScene} from './scene.mjs';
 import {normalizeBuddyFrame} from './native.mjs';
 import {writeTextAtomic} from './storage.mjs';
 const exec=promisify(execFile),hash=value=>createHash('sha256').update(value).digest('hex');
+// Полностью прозрачный PNG после фильтров строк состоит только из байтов типа фильтра (0–4).
+export function blankPng(base64){
+ const png=Buffer.from(base64||'','base64'),parts=[];
+ for(let offset=8;offset+8<=png.length;){const length=png.readUInt32BE(offset);if(png.toString('ascii',offset+4,offset+8)==='IDAT')parts.push(png.subarray(offset+8,offset+8+length));offset+=12+length;}
+ try{return inflateSync(Buffer.concat(parts)).every(byte=>byte<=4);}catch{return false;}
+}
 function device(sdk,serial){if(!sdk||!/^emulator-\d+$/.test(serial||''))throw Error('Нужен SDK и выделенный тестовый эмулятор');return args=>exec(path.join(sdk,'platform-tools/adb'),['-s',serial,...args],{maxBuffer:16*1024*1024,timeout:30000});}
 export async function withLiveHost(filename,call,operation){
  const original=await readFile(filename,'utf8');if(typeof call!=='string'||!call.trim()||original.split(call).length!==2)throw Error('Host устарел или вызов неоднозначен');
@@ -70,6 +77,7 @@ export async function captureLive(workspace){
  if((await adb(['shell','sha256sum',installed])).stdout.split(/\s+/)[0]!==live.built.apkSha256)throw Error('В эмуляторе другая сборка приложения');
  let raw;try{raw=JSON.parse((await adb(['shell','run-as',live.applicationId,'cat','files/compose-visual-bridge-live.json'])).stdout);}catch{throw Error('Перейдите на экран приложения и нажмите «Редактировать экран»');}
  if(!/^[a-f0-9-]{36}$/.test(raw.captureId||'')||!Number.isFinite(raw.capturedAt)||(live.launchId?raw.launchId!==live.launchId:raw.capturedAt<live.startedAt))throw Error('Захват относится к прежнему запуску');
+ if(blankPng(raw.image))throw Error('Кадр экрана пустой: нажмите «Редактировать экран» ещё раз');
  const frame=normalizeBuddyFrame(raw,{sourceRevision:live.built.sourceRevision,screenState:'Текущий экран работающего приложения'});frame.provider='compose-visual-bridge-live';
  const document=await bindScene(live.scene,frame),rootRule=document.compose.bindings[document.root.id];
  document.name=rootRule.name||rootRule.source.symbol;document.state={...document.state,screen:rootRule.key,screenState:document.name+(raw.systemTheme==='dark'?' · системная тёмная тема':raw.systemTheme==='light'?' · системная светлая тема':''),systemTheme:['light','dark'].includes(raw.systemTheme)?raw.systemTheme:null,entry:'live',captureId:raw.captureId};

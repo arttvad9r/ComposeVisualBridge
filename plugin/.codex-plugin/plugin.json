@@ -1,6 +1,6 @@
 {
   "name": "compose-visual-bridge",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Локальный визуальный редактор Android Compose и передача правок агенту",
   "skills": "./skills/",
   "interface": {
