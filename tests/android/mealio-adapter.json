@@ -1,0 +1,338 @@
+{
+  "format": "compose-visual-bridge-scene-adapter-v1",
+  "name": "Настройки Mealio",
+  "calls": [
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "Column",
+      "occurrence": 0,
+      "type": "Column",
+      "props": {
+        "scrollable": true
+      },
+      "root": true,
+      "key": "mealio-0",
+      "background": "MaterialTheme.colorScheme.background"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "MealioCard",
+      "occurrence": 0,
+      "type": "Card",
+      "props": {
+        "radius": 16,
+        "borderWidth": 1,
+        "borderColor": "#D8DBDF",
+        "clipContent": true
+      },
+      "border": "MaterialTheme.colorScheme.outlineVariant",
+      "borderWidth": "1f",
+      "background": "MaterialTheme.colorScheme.surface",
+      "key": "mealio-1"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "Column",
+      "occurrence": 1,
+      "type": "Column",
+      "props": {},
+      "key": "mealio-2"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "Text",
+      "occurrence": 0,
+      "type": "Text",
+      "props": {},
+      "key": "mealio-3"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "InfoValue",
+      "occurrence": 0,
+      "scope": true,
+      "key": "mealio-4"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "InfoValue",
+      "occurrence": 1,
+      "scope": true,
+      "key": "mealio-5"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "InfoValue",
+      "occurrence": 2,
+      "scope": true,
+      "key": "mealio-6"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "MealioCard",
+      "occurrence": 1,
+      "type": "Card",
+      "props": {
+        "radius": 16,
+        "borderWidth": 1,
+        "borderColor": "#D8DBDF",
+        "clipContent": true
+      },
+      "border": "MaterialTheme.colorScheme.outlineVariant",
+      "borderWidth": "1f",
+      "background": "MaterialTheme.colorScheme.surface",
+      "key": "mealio-7"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "Column",
+      "occurrence": 2,
+      "type": "Column",
+      "props": {},
+      "key": "mealio-8"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "Text",
+      "occurrence": 1,
+      "type": "Text",
+      "props": {},
+      "key": "mealio-9"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "Row",
+      "occurrence": 0,
+      "type": "Row",
+      "props": {},
+      "key": "mealio-10"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "FilterChip",
+      "occurrence": 0,
+      "type": "Button",
+      "props": {
+        "borderWidth": 1,
+        "borderColor": "#CACED5"
+      },
+      "instance": "mode.name",
+      "border": "MaterialTheme.colorScheme.outline",
+      "borderWidth": "if (themeMode == mode) 0f else 1f",
+      "background": "if (themeMode == mode) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface",
+      "foreground": "if (themeMode == mode) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant",
+      "key": "mealio-11"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "MealioCard",
+      "occurrence": 2,
+      "type": "Card",
+      "props": {
+        "radius": 16,
+        "borderWidth": 1,
+        "borderColor": "#D8DBDF",
+        "clipContent": true
+      },
+      "border": "MaterialTheme.colorScheme.outlineVariant",
+      "borderWidth": "1f",
+      "background": "MaterialTheme.colorScheme.surface",
+      "key": "mealio-12"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "Column",
+      "occurrence": 3,
+      "type": "Column",
+      "props": {},
+      "key": "mealio-13"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "Text",
+      "occurrence": 3,
+      "type": "Text",
+      "props": {},
+      "key": "mealio-14"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "Row",
+      "occurrence": 1,
+      "type": "Row",
+      "props": {},
+      "key": "mealio-15"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "FilterChip",
+      "occurrence": 1,
+      "type": "Button",
+      "props": {
+        "borderWidth": 1,
+        "borderColor": "#CACED5"
+      },
+      "instance": "option.name",
+      "border": "MaterialTheme.colorScheme.outline",
+      "borderWidth": "if (language == option) 0f else 1f",
+      "background": "if (language == option) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface",
+      "foreground": "if (language == option) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant",
+      "key": "mealio-16"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "MealioCard",
+      "occurrence": 3,
+      "type": "Card",
+      "props": {
+        "radius": 16,
+        "borderWidth": 1,
+        "borderColor": "#D8DBDF",
+        "clipContent": true
+      },
+      "border": "MaterialTheme.colorScheme.outlineVariant",
+      "borderWidth": "1f",
+      "background": "MaterialTheme.colorScheme.surface",
+      "key": "mealio-17"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "Column",
+      "occurrence": 4,
+      "type": "Column",
+      "props": {},
+      "key": "mealio-18"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "Text",
+      "occurrence": 5,
+      "type": "Text",
+      "props": {},
+      "key": "mealio-19"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "OutlinedButton",
+      "occurrence": 0,
+      "type": "Button",
+      "props": {
+        "borderWidth": 1,
+        "borderColor": "#CACED5"
+      },
+      "border": "MaterialTheme.colorScheme.outline",
+      "borderWidth": "1f",
+      "background": "MaterialTheme.colorScheme.surface",
+      "foreground": "MaterialTheme.colorScheme.error",
+      "key": "mealio-20"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "MealioCard",
+      "occurrence": 4,
+      "type": "Card",
+      "props": {
+        "radius": 16,
+        "borderWidth": 1,
+        "borderColor": "#D8DBDF",
+        "clipContent": true
+      },
+      "border": "MaterialTheme.colorScheme.outlineVariant",
+      "borderWidth": "1f",
+      "background": "MaterialTheme.colorScheme.surface",
+      "key": "mealio-21"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "Column",
+      "occurrence": 5,
+      "type": "Column",
+      "props": {},
+      "key": "mealio-22"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "Text",
+      "occurrence": 7,
+      "type": "Text",
+      "props": {},
+      "key": "mealio-23"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "Text",
+      "occurrence": 8,
+      "type": "Text",
+      "props": {},
+      "key": "mealio-24"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "Text",
+      "occurrence": 9,
+      "type": "Text",
+      "props": {},
+      "key": "mealio-25"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "TextButton",
+      "occurrence": 0,
+      "type": "Button",
+      "props": {
+        "borderWidth": 0
+      },
+      "background": "MaterialTheme.colorScheme.surface",
+      "foreground": "MaterialTheme.colorScheme.primary",
+      "key": "mealio-26"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "SettingsScreen",
+      "call": "Spacer",
+      "occurrence": 0,
+      "type": "Spacer",
+      "props": {},
+      "key": "mealio-27"
+    },
+    {
+      "file": "app/src/main/java/com/arttvad9r/mealio/ui/screens/SettingsScreen.kt",
+      "symbol": "InfoValue",
+      "call": "Text",
+      "occurrence": 0,
+      "type": "Text",
+      "key": "mealio-28",
+      "props": {
+        "maxLines": 2,
+        "textOverflow": "ellipsis"
+      }
+    }
+  ]
+}

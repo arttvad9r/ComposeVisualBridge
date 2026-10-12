@@ -1,23 +1,30 @@
 {
   "name": "compose-visual-bridge",
-  "version": "0.2.3",
+  "version": "0.9.1",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test tests.mjs",
+    "test": "node --test tests.mjs tests/integration.test.mjs tests/plugin.test.mjs tests/baseline.test.mjs tests/native.test.mjs tests/native-project.test.mjs tests/source-map.test.mjs tests/native-editor.test.mjs tests/native-device.test.mjs tests/compose.test.mjs tests/scene.test.mjs tests/instrumentation-storage.test.mjs tests/transfer-result.test.mjs tests/project.test.mjs tests/live.test.mjs",
+    "test:browser": "playwright test",
+    "pretest:browser": "npm run build",
     "build": "node scripts/build.mjs",
+    "browser:scenarios": "node scripts/browser-scenarios.mjs",
+    "prebrowser:scenarios": "npm run build",
     "prestart": "npm run build",
-    "pretest": "npm run build"
+    "pretest": "npm run package:plugin",
+    "bridge": "node scripts/bridge.mjs",
+    "package:plugin": "npm run build && node scripts/package-plugin.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "@dnd-kit/dom": "^0.5.0"
+    "@dnd-kit/dom": "^0.7.0"
   },
   "devDependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^4.0.0",
+    "@playwright/test": "^1.64.0",
     "esbuild": "^0.28.2"
   }
 }

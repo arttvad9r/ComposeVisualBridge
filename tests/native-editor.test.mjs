@@ -1,0 +1,31 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,rm,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import {tmpdir} from 'node:os';
+import {createNativeBridge,normalizeBuddyFrame,validateNativeIntents} from '../native.mjs';
+import {buddyFrame,metadata} from './native-fixture.mjs';
+test('native editing validates complete properties, new-element properties and structural cycles',()=>{
+  const frame=normalizeBuddyFrame(buddyFrame(),metadata),intent=(property,value,nodeId='7')=>({nodeId,property,value});
+  const changes=validateNativeIntents([intent('width','fill'),intent('height','auto'),intent('align','center'),intent('justify','space-between'),intent('padding',16),intent('radius',12),intent('opacity',.5),intent('fontWeight',600),intent('addChild',[{type:'Text',text:'New',properties:{fontSize:18,color:'#123456'}}],'0')],frame);
+  assert.equal(changes.length,9);assert.equal(changes[8].value[0].properties.fontSize,18);assert.ok(changes.every(i=>i.sourceRequiresResolution));
+  for(const [property,value] of [['align','fake'],['opacity',2],['fontWeight',50],['padding',-1],['width','guess'],['addChild',{type:'Text',text:'x',properties:{fontSize:-1}}]])assert.throws(()=>validateNativeIntents([intent(property,value)],frame));
+  assert.throws(()=>validateNativeIntents([intent('remove',true,'0')],frame),/корень/);assert.throws(()=>validateNativeIntents([intent('moveTo',{parentId:'7',index:0})],frame),/цикл/);
+  const nested=structuredClone(frame);nested.nodes.push({...nested.nodes[1],id:'8',parentId:'0'});
+  assert.throws(()=>validateNativeIntents([intent('moveTo',{parentId:'8',index:0}),intent('moveTo',{parentId:'7',index:0},'8')],nested),/цикл/);
+});
+test('native Undo/Redo survives restart, branch edits drop Redo, capture export and true-frame comparison work',async t=>{
+  const data=await mkdtemp(path.join(tmpdir(),'bridge-native-editor-'));t.after(()=>rm(data,{recursive:true,force:true}));
+  const options={data,atomic:(f,v)=>writeFile(f,JSON.stringify(v)),serial:fn=>fn()};let bridge=await createNativeBridge(options),revision=0;
+  const request=async(route,input,method='POST')=>{let result;await bridge.handle({method},{},new URL('http://localhost/api/native'+route),(status,value)=>{result=value;if(Number.isInteger(value.revision))revision=value.revision;},async()=>({...input,revision}));return result;};
+  const initial=await request('/frame',{...metadata,frame:buddyFrame()});const digest=initial.frame.digest;
+  await request('/draft',{digest,intents:[{nodeId:'7',property:'fontSize',value:16}]});await request('/draft',{digest,intents:[{nodeId:'7',property:'fontSize',value:18}]});
+  assert.equal((await request('/history',{direction:'undo'})).draft[0].value,16);bridge.stop();bridge=await createNativeBridge(options);
+  assert.equal((await request('/history',{direction:'redo'})).draft[0].value,18);
+  await request('/history',{direction:'undo'});const edited=await request('/draft',{digest,intents:[{nodeId:'7',property:'fontSize',value:20}]});assert.equal(edited.history.redo,0);
+  await request('/confirm',{digest,acknowledged:true});await request('/apply',{mode:'review'});await request('/draft',{digest,intents:[]});
+  const capture=await request('/export',{},'GET');assert.equal(normalizeBuddyFrame(capture.frame,capture).digest,digest);
+  const newer=await request('/frame',{...metadata,sourceRevision:'b'.repeat(64),frame:buddyFrame('Изменённый экран')});assert.equal(newer.comparisonFrame.digest,digest);assert.equal(newer.history.undo,0);assert.equal(newer.confirmedDigest,null);assert.equal((await request('/handoff',{},'GET')).frame.digest,digest);
+  const dark=buddyFrame();dark.preview='test.DarkPreview';const switched=await request('/frame',{...metadata,screenState:'Тёмный',sourceRevision:'b'.repeat(64),frame:dark});assert.equal(switched.comparisonFrame,null);
+  const restored=await request('/frame',{...metadata,sourceRevision:'b'.repeat(64),frame:buddyFrame('Изменённый экран')});assert.equal(restored.comparisonFrame.digest,digest);bridge.stop();
+});

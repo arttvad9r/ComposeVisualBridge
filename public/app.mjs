@@ -1,24 +1,52 @@
+import {setupProject} from './project-ui.mjs';
+import {setupResult} from './result-ui.mjs';
+import {composeCapability} from './compose-capabilities.mjs';
+import {MODIFIER_MODEL,modifierMetrics} from './modifier-layout.mjs';
+import {scaledSp,robotoFamily} from './typography.mjs';
+import {setupZoom, syncZoom, getZoom} from './zoom.mjs';
+import { setupBaseline, updateBaselineSession, handoffMode } from './baseline-ui.mjs';
+import { sectionHelp, setupHelp, helpButton } from './help.mjs';
 import { shiftedOffsets, resizeRect, anchoredChildFrames } from './geometry.mjs';
 import { createDrag } from './drag-dnd.mjs';
-import { TYPES, CONTAINERS, clone, validate, indexTree, diff, move, History } from './model.mjs';
+import { TYPES, CONTAINERS, FONT_FAMILIES, clone, validate, indexTree, diff, move, History } from './model.mjs';
 const $ = id => document.getElementById(id);
 let baseline, history, revision = 0, selected = 'screen', scale = .65, dragging = null, draftTimer, saveQueue = Promise.resolve(), conflict = false;
 let suppressClick = false, applied = null, appliedDocument = null, appliedReport = '';
 async function loadApplied(state) {
+  updateBaselineSession(state); updateResult(state);
+  $("restoreSession").hidden=!state.previousSession;
   applied = state.applied; appliedDocument = null; appliedReport = '';
-  if (applied) { const value = await api('/api/handoff'); appliedDocument = value.document; appliedReport = value.report; }
+  if (applied) { try { const value = await api('/api/handoff'); appliedDocument = value.document; appliedReport = value.report; } catch(error) { appliedReport = `Перенос запрещён. ${error.message}`; } }
 }
 function renderHandoff() {
   const same = appliedDocument && JSON.stringify(appliedDocument) === JSON.stringify(doc());
-  $('handoffStatus').textContent = applied ? `Снимок ${applied.directory} · ${applied.mode === 'test' ? 'тестовый' : applied.mode === 'review' ? 'для согласования' : 'старый, режим не указан'} · ${same ? 'совпадает с черновиком' : 'черновик отличается от снимка'}` : 'Снимок ещё не создан';
+  $('handoffStatus').textContent = applied ? `Последняя передача · ${same ? 'совпадает с черновиком' : 'черновик отличается от снимка'}` : 'Снимок ещё не создан';
   $('readReport').disabled = !applied;
 }
+const updateResult=setupResult({api,notice,accept:async id=>{
+  document.body.inert=true;clearTimeout(draftTimer);
+  try{
+    await queueSave();const state=await api('/api/result/accept','POST',{revision,id});
+    revision=state.revision;baseline=clone(state.baseline);history=History.restore(state.current,state.history);conflict=false;selected=doc().root.id;
+    await loadApplied(state);localSave();render();setSaveStatus('Черновик сохранён ✓');
+    notice(state.result.lateDraft.status==='archived'?'Результат принят. Поздний черновик сохранён в предыдущей сессии.':'Результат принят. Сверьте новый исходник с настоящим экраном.');
+  }finally{document.body.inert=false;}
+}});
+const loadProject=setupProject({api,notice,revision:()=>revision,flush:async()=>{clearTimeout(draftTimer);await queueSave();},addComponent:(component,sourceRevision)=>{const next=clone(doc()),parent=indexTree(next.root).get(selected)?.node;if(!parent||!CONTAINERS.includes(parent.type)){notice('Выберите контейнер для компонента',true);return;}const node=clone(component.node);for(const entry of indexTree(node).values())entry.node.id='palette-'+crypto.randomUUID().slice(0,8);parent.children||=[];parent.children.push(node);next.state={...next.state,paletteInsertions:[...(next.state?.paletteInsertions||[]),{id:node.id,component:component.id,sourceRevision}]};selected=node.id;changed(next);}});
 const sectionState = new Map();
 const CACHE = 'compose-visual-bridge-draft-v1';
+const typeNames={Column:'Колонка',Row:'Строка',Box:'Контейнер',Card:'Карточка',Text:'Текст',Button:'Кнопка',Icon:'Иконка',Image:'Изображение',TextField:'Поле ввода',Switch:'Переключатель',Spacer:'Промежуток'};
+const nodeName=node=>node?.props?.text?.trim() || typeNames[node?.type] || 'Элемент';
 const icons = { Column: '▥', Row: '▤', Box: '□', Card: '▣', Text: 'T', Button: '▰', Icon: '◇', Image: '▧', TextField: '▭', Switch: '◉', Spacer: '↕' };
 const doc = () => history.current;
 function el(tag, className, text) { const node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node; }
 function notice(message = '', error = false) { $('notice').textContent = message; $('notice').classList.toggle('error', error); }
+let storedSaveStatus = 'Загрузка…';
+function setSaveStatus(message) {
+  storedSaveStatus = message;
+  if (!document.body.classList.contains('dragging') && !document.body.classList.contains('resizing')) $('saveStatus').textContent = message;
+}
+function restoreSaveStatus() { $('saveStatus').textContent = storedSaveStatus; }
 async function api(url, method = 'GET', payload) {
   const response = await fetch(url, { method, ...(payload ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) } : {}) });
   const value = await response.json();
@@ -26,16 +54,15 @@ async function api(url, method = 'GET', payload) {
   return value;
 }
 function localSave() {
-  try { localStorage.setItem(CACHE, JSON.stringify({ revision, baseline, document: doc() })); } catch { /* Server remains the durable storage. */ }
+  try { localStorage.setItem(CACHE, JSON.stringify({ revision, baseline, document: doc(), history:history.snapshot() })); } catch { /* Server remains the durable storage. */ }
 }
-function queueSave(url = '/api/draft', documentValue = clone(doc())) {
-  const handoffMode = $('testMode').checked ? 'test' : 'review';
+function queueSave(url = '/api/draft', documentValue = clone(doc()), historyValue=history.snapshot()) {
   saveQueue = saveQueue.catch(() => {}).then(async () => {
     if (conflict) throw Error('Обнаружен конфликт. Экспортируйте макет и загрузите версию с сервера.');
-    $('saveStatus').textContent = 'Сохранение…';
-    const value = await api(url, url === '/api/apply' ? 'POST' : 'PUT', { revision, document: documentValue, ...(url === '/api/apply' ? { mode: handoffMode } : {}) });
+    setSaveStatus('Сохранение…');
+    const value = await api(url, url === '/api/apply' ? 'POST' : 'PUT', { revision, document: documentValue, history:historyValue, ...(url === '/api/apply' ? { mode: handoffMode(documentValue) } : {}) });
     revision = value.revision; localSave();
-    $('saveStatus').textContent = url === '/api/apply' ? 'Передано агенту ✓' : 'Черновик сохранён ✓';
+    setSaveStatus(url === '/api/apply' ? 'Передано агенту ✓' : 'Черновик сохранён ✓');
     return value;
   });
   return saveQueue;
@@ -72,11 +99,20 @@ function changed(next, keepInspector = false, skipFreeze = false) {
     if (keepInspector) { renderTree(); renderPreview(); renderDiff(); $('undo').disabled = !history.past.length; $('redo').disabled = !history.future.length; }
     else render();
     clearTimeout(draftTimer);
-    $('saveStatus').textContent = 'Есть несохранённые правки';
-    draftTimer = setTimeout(() => queueSave().catch(error => { notice(error.message, true); $('saveStatus').textContent = 'Не сохранено'; }), 500);
+    setSaveStatus('Есть несохранённые правки');
+    draftTimer = setTimeout(() => queueSave().catch(error => { notice(error.message, true); setSaveStatus('Не сохранено'); }), 500);
   } catch (error) { notice(error.message, true); }
 }
-function select(id) { selected = id; renderTree(); renderPreview(); renderInspector(); }
+function select(id, focusTree = false) { selected = id; renderTree(focusTree ? id : undefined); renderPreview(); renderInspector(); }
+function removeSelected() {
+  const entry = indexTree(doc().root).get(selected);
+  if (!entry?.parent) return;
+  const next = clone(doc()), parent = indexTree(next.root).get(entry.parent).node;
+  parent.children = parent.children.filter(child => child.id !== selected);
+  selected = entry.parent;
+  changed(next);
+  notice('Элемент удалён. Отменить — Ctrl+Z.');
+}
 function updateProperty(key, value, keepInspector = false) {
   const next = clone(doc()), node = indexTree(next.root).get(selected)?.node;
   if (!node) return;
@@ -94,7 +130,7 @@ function dropIntent(from, targetElement, event) {
   let position = inside ? target.node.children?.length || 0 : target.index + (fraction >= .5 ? 1 : 0);
   if (source.parent === parentId && source.index < position) position--;
   return {parentId, position, kind:inside ? 'inside' : fraction >= .5 ? 'after' : 'before', horizontal,
-    label:inside ? `Внутрь ${target.node.id}` : `${fraction >= .5 ? 'После' : 'Перед'} ${target.node.id}`};
+    label:inside ? `Внутрь ${nodeName(target.node)}` : `${fraction >= .5 ? 'После' : 'Перед'} ${nodeName(target.node)}`};
 }
 function clearDropMarkers() {
   document.querySelectorAll('[data-drop]').forEach(n => { delete n.dataset.drop; delete n.dataset.dropAxis; });
@@ -140,6 +176,7 @@ const drag = createDrag({
     if (visualDrag) {
       const gesture=visualDrag; visualDrag=null; dragging=null; document.body.classList.remove('dragging');
       suppressClick=true; setTimeout(()=>{suppressClick=false;},100);
+      restoreSaveStatus();
       if (canceled) {renderPreview(); notice('Перемещение отменено.');}
       else {const next=clone(doc()); if(gesture.frames)next.layout={mode:'free',frames:gesture.frames}; const props=indexTree(next.root).get(id).node.props;
         for (const key of ['offsetX','offsetY']) if (gesture.offsets[key] !== (props[key]||0)) props[key]=gesture.offsets[key];
@@ -155,30 +192,55 @@ const drag = createDrag({
   },
 });
 function wireDrag(node, id) { if (id !== doc().root.id) drag.wire(node, id); }
-function renderTree() {
+function renderTree(focusId = document.activeElement?.closest('#tree [data-node-id]')?.dataset.nodeId) {
   drag.clear($('tree')); $('tree').replaceChildren(); const map = indexTree(doc().root);
+  if (!map.has(selected)) selected = doc().root.id;
+  $('tree').setAttribute('aria-description', 'Стрелки вверх и вниз — выбор; влево — родитель, вправо — первый ребёнок; Home и End — начало и конец дерева.');
   $('count').textContent = map.size; $('projectName').textContent = doc().name;
   function visit(node, depth) {
     const button = el('button', 'tree-node' + (node.id === selected ? ' selected' : ''));
     button.style.paddingLeft = `${8 + depth * 13}px`; button.setAttribute('role', 'treeitem'); button.setAttribute('aria-level', depth + 1); button.setAttribute('aria-selected', node.id === selected); button.dataset.nodeId = node.id;
-    button.append(el('span', 'tree-grip', '⠿'), el('span', 'node-glyph', icons[node.type]), el('span', '', node.id));
-    button.title = `${node.id} · ${node.type}`;
+    button.tabIndex = node.id === selected ? 0 : -1;
+    button.append(el('span', 'tree-grip', '⠿'), el('span', 'node-glyph', icons[node.type]), el('span', 'tree-label', nodeName(node)));
+    button.title = `${nodeName(node)} · ${typeNames[node.type] || node.type}`;
     button.addEventListener('click', () => { if (!suppressClick) select(node.id); }); wireDrag(button, node.id); $('tree').append(button);
+    button.addEventListener('keydown', event => {
+      if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+      const ids = [...map.keys()], position = ids.indexOf(node.id), entry = map.get(node.id);
+      const next = { ArrowDown: ids[Math.min(ids.length - 1, position + 1)], ArrowUp: ids[Math.max(0, position - 1)], Home: ids[0], End: ids.at(-1), ArrowLeft: entry.parent || node.id, ArrowRight: node.children?.[0]?.id || node.id }[event.key];
+      if (next) { event.preventDefault(); select(next, true); }
+    });
     (node.children || []).forEach(child => visit(child, depth + 1));
   }
   visit(doc().root, 0);
+  if (focusId) {
+    const target = [...$('tree').querySelectorAll('[data-node-id]')].find(element => element.dataset.nodeId === (map.has(focusId) ? focusId : selected));
+    target?.focus({ preventScroll: true }); target?.scrollIntoView({ block: 'nearest' });
+  }
   $('add').disabled = !CONTAINERS.includes(map.get(selected)?.node.type);
+  renderAddCapability();
 }
+function capabilityHelp(title,reason) { const button=helpButton(title,reason+' Ваши правки сохраняются и передаются вместе с остальными изменениями.');button.title=reason;return button; }
+function renderAddCapability() {
+  $('addTransferHelp')?.remove();
+  const capability=composeCapability($('newType').value);
+  if(capability.mode==='agent'){const button=capabilityHelp('Добавление элемента',capability.reason);button.id='addTransferHelp';document.querySelector('.add-section > label').append(button);}
+}
+$('newType').addEventListener('change',renderAddCapability);
 const alignment = { start: 'flex-start', center: 'center', end: 'flex-end', stretch: 'stretch', 'space-between': 'space-between' };
-function renderNode(node, editable, parentType, frames) {
+function renderNode(node, editable, parentType, frames, fontScale=1, parentAlign, textGeometry={}, modifierBindings, fontScaleCurve, fontHashes) {
   const p = node.props, container = CONTAINERS.includes(node.type), n = el('div', 'layout-node');
-  n.dataset.nodeId = node.id; n.dataset.label = node.id;
+  n.dataset.nodeId = node.id; n.dataset.label = nodeName(node);
   if (container) {
     n.style.display = node.type === 'Box' ? 'grid' : 'flex';
     n.style.flexDirection = node.type === 'Row' ? 'row' : 'column';
     n.style.alignItems = alignment[p.align || (node.type === 'Row' ? 'center' : 'stretch')];
     n.style.justifyContent = alignment[p.justify || 'start'];
     n.style.gap = `${p.gap || 0}px`;
+    if(node.type==='Box') {
+      n.style.gridTemplateColumns='minmax(0, 1fr)';n.style.gridTemplateRows='minmax(0, 1fr)';
+      n.style.justifyItems='start';n.style.alignItems=alignment[p.align||'start'];
+    }
   }
   const size = (key, value) => {
     if (typeof value === 'number') n.style[key] = `${value}px`;
@@ -186,9 +248,11 @@ function renderNode(node, editable, parentType, frames) {
       if ((key === 'width' && parentType === 'Row') || (key === 'height' && parentType && parentType !== 'Row' && parentType !== 'Box')) { n.style.flexGrow = '1'; n.style.flexBasis = '0'; n.style.minHeight = '0'; }
       else n.style[key] = '100%';
     }
-    if (value === 'auto' && key === 'width') { n.style.width = 'fit-content'; n.style.maxWidth = '100%'; }
+    if (value === 'auto') { n.style[key] = 'fit-content'; if(key==='width')n.style.maxWidth='100%'; }
   };
   size('width', p.width); size('height', p.height);
+  const stretchAxis=!frames&&parentAlign==='stretch'?(parentType==='Row'?'height':parentType==='Column'?'width':null):null;
+  if(stretchAxis&&(p[stretchAxis]===undefined||p[stretchAxis]==='auto'))size(stretchAxis,'fill');
   if (p.weight) { n.style.flexGrow = p.weight; n.style.flexBasis = '0'; }
   if (!container && p.align) n.style.alignSelf = alignment[p.align];
   if (parentType === 'Box') n.style.gridArea = '1 / 1';
@@ -196,25 +260,46 @@ function renderNode(node, editable, parentType, frames) {
   if (p.paddingHorizontal !== undefined) { n.style.paddingLeft = `${p.paddingHorizontal}px`; n.style.paddingRight = `${p.paddingHorizontal}px`; }
   if (p.paddingVertical !== undefined) { n.style.paddingTop = `${p.paddingVertical}px`; n.style.paddingBottom = `${p.paddingVertical}px`; }
   if (p.radius !== undefined) n.style.borderRadius = `${p.radius}px`;
-  if (p.fontSize !== undefined) n.style.fontSize = `${p.fontSize}px`;
-  if (p.lineHeight !== undefined) n.style.lineHeight = `${p.lineHeight}px`;
+  if (p.fontSize !== undefined) n.style.fontSize = `${scaledSp(p.fontSize,fontScale,fontScaleCurve)}px`;
+  const metrics=textGeometry[node.id];
+  const nativeText=metrics&&metrics.fontSize>0&&['text','fontFamily','fontWeight','fontStyle'].every(key=>metrics[key]===undefined||metrics[key]===p[key]);
+  if(nativeText&&metrics.fontDp>0)n.style.fontSize=`${metrics.fontDp*scaledSp(p.fontSize||metrics.fontSize,fontScale,fontScaleCurve)/scaledSp(metrics.fontSize,fontScale,fontScaleCurve)}px`;
+  const sameTextLayout=nativeText&&['fontSize','lineHeight','letterSpacing','maxLines','textOverflow'].every(key=>metrics[key]===p[key])&&(!frames?.[node.id]||Math.abs(frames[node.id].width-(metrics.layoutWidth??frames[node.id].width))<.01)&&(p.width===undefined||p.width===metrics.layoutWidth);
+  const nativeSingleLine=nativeText&&(metrics.lineCount===1||(metrics.lineCount==null&&p.maxLines===1));
+  // Compose trims leading above/below a single line; CSS line-height includes it.
+  const lineHeight=nativeSingleLine?metrics.textHeight*fontScale*scaledSp(p.fontSize||metrics.fontSize,fontScale,fontScaleCurve)/scaledSp(metrics.fontSize,fontScale,fontScaleCurve):sameTextLayout&&metrics.lineAdvance?metrics.lineAdvance:p.lineHeight===undefined?undefined:(p.fontSize?scaledSp(p.fontSize,fontScale,fontScaleCurve)*p.lineHeight/p.fontSize:p.lineHeight*fontScale);
+  if (lineHeight !== undefined) n.style.lineHeight = `${lineHeight}px`;
+  if (p.fontFamily==='Roboto') n.style.fontFamily=`"${robotoFamily(fontHashes?.Roboto)}"`;
+  else if (p.fontFamily) n.style.fontFamily=({system:'system-ui','Sans Serif':'sans-serif',Serif:'serif',Monospace:'monospace',Cursive:'cursive'}[p.fontFamily] || p.fontFamily);
+  if (p.letterSpacing !== undefined) n.style.letterSpacing=`${scaledSp(p.letterSpacing,fontScale,fontScaleCurve)}px`;
   if (p.fontWeight !== undefined) n.style.fontWeight = p.fontWeight;
   if (p.borderWidth !== undefined) n.style.border = `${p.borderWidth}px solid ${p.borderColor || '#D6D9D3'}`;
   if (p.scrollable) { n.style.overflowY = 'auto'; n.style.minHeight = '0'; n.style.scrollbarWidth = 'thin'; }
   if (p.color) n.style.color = p.color;
   if (p.background) n.style.background = p.background;
+  if(p.background&&modifierBindings) {
+    const inset=modifierMetrics(p,modifierBindings[node.id]).backgroundInset;
+    if(inset.horizontal||inset.vertical)Object.assign(n.style,{backgroundColor:'transparent',backgroundImage:`linear-gradient(${p.background}, ${p.background})`,backgroundRepeat:'no-repeat',backgroundPosition:`${inset.horizontal}px ${inset.vertical}px`,backgroundSize:`max(0px, calc(100% - ${2*inset.horizontal}px)) max(0px, calc(100% - ${2*inset.vertical}px))`});
+  }
   if (p.opacity !== undefined) n.style.opacity = p.opacity;
+  if (p.clipContent) n.style.overflow='hidden';
   if (p.offsetX || p.offsetY) n.style.translate = `${p.offsetX || 0}px ${p.offsetY || 0}px`;
-  if (node.type === 'Card' && !p.borderWidth) n.style.boxShadow = '0 3px 14px #26304706';
+  if (node.type === 'Card' && !p.borderWidth && !doc().compose) n.style.boxShadow = '0 3px 14px #26304706';
   if (['Text', 'Icon', 'Button'].includes(node.type)) { n.textContent = p.text || node.type; if (node.type === 'Button') { n.classList.add('button-node'); const label = el('span', 'text-content', n.textContent); n.replaceChildren(label); } }
   if (node.type === 'Icon') n.style.textAlign = 'center';
   if (node.type === 'TextField') { n.classList.add('field-node'); n.textContent = p.text || p.placeholder || 'Введите текст'; }
   if (['Text', 'Button', 'Icon', 'TextField'].includes(node.type)) {
     n.style.whiteSpace = 'pre-wrap';
     if (p.textAlign) n.style.textAlign = p.textAlign;
-    if (p.fontStyle) n.style.fontStyle = p.fontStyle;
+    if (p.fontStyle) {n.style.fontStyle = p.fontStyle;n.style.fontVariationSettings=p.fontStyle==='italic'?'"ital" 1, "slnt" -10':'"ital" 0, "slnt" 0';}
     if (p.textDecoration) n.style.textDecoration = p.textDecoration;
-    if (node.type === 'TextField') { const label = el('span', 'text-content', n.textContent); n.replaceChildren(label); }
+    if (node.type === 'TextField' || node.type === 'Text') { const label = el('span', 'text-content', n.textContent); n.replaceChildren(label); }
+  }
+  if (p.maxLines || p.textOverflow) {
+    const label=n.querySelector('.text-content') || n;
+    label.style.overflow='hidden'; label.style.maxWidth='100%'; label.style.minWidth='0';
+    if(p.maxLines===1) { label.style.whiteSpace='pre'; label.style.maxHeight='1lh'; label.style.textOverflow=p.textOverflow || 'clip'; }
+    else if(p.maxLines) { if(p.textOverflow==='ellipsis') { label.style.display='-webkit-box'; label.style.webkitBoxOrient='vertical'; label.style.webkitLineClamp=String(p.maxLines); } else {label.style.display='block'; label.style.maxHeight=`calc(${p.maxLines} * 1lh)`;} }
   }
   if (node.type === 'Switch') { n.classList.add('switch-node'); n.classList.toggle('checked', Boolean(p.checked)); }
   if (node.type === 'Spacer') { if (p.height === undefined) n.style.height = '16px'; }
@@ -222,11 +307,38 @@ function renderNode(node, editable, parentType, frames) {
     if (p.src) { const image = el('img', 'image-node'); image.src = p.src; image.alt = p.text || 'Изображение'; image.style.width = '100%'; image.style.height = '100%'; n.append(image); }
     else { n.textContent = '▧ Изображение'; n.style.background ||= '#e9e6f4'; n.style.padding ||= '24px'; }
   }
-  (node.children || []).forEach(child => n.append(renderNode(child, editable, node.type, frames)));
+  const label=n.querySelector('.text-content');
+
+  // Keep measured native breaks and ellipsis while text, typography and width
+  // match the capture; edits restore normal CSS wrapping without rewriting intent.
+  if(sameTextLayout&&label&&(metrics.lineCount===1||metrics.lineRanges)){
+    if(metrics.lineRanges)label.replaceChildren(...metrics.lineRanges.map((range,i)=>{
+      const text=p.text.slice(range.start,range.end)+(range.ellipsis?'…':''),line=el('span','native-line',text);line.style.display='block';
+      if(metrics.lineWidths?.[i]>0){
+        const width=metrics.lineWidths[i],box=el('span','native-line-width'),glyphs=el('span','native-line-glyphs',text);
+        Object.assign(box.style,{display:'inline-block',width:`${width}px`});Object.assign(glyphs.style,{display:'block',width:'max-content',transformOrigin:'left center'});box.append(glyphs);line.replaceChildren(box);
+        document.fonts.ready.then(()=>{if(!glyphs.isConnected)return;const actual=parseFloat(getComputedStyle(glyphs).width);if(actual>0)glyphs.style.transform=`scaleX(${width/actual})`;});
+      }
+      return line;
+    }));
+    label.style.display='block';label.style.webkitLineClamp='none';label.style.maxHeight='none';label.style.whiteSpace='pre';label.style.overflow='visible';label.style.textOverflow='clip';label.style.maxWidth='none';}
+  if(node.type==='Button'&&sameTextLayout&&metrics.textBoxWidth>=0&&label){label.style.width=`${metrics.textBoxWidth}px`;label.style.textAlign=p.textAlign||'left';}
+  if(node.type!=='Button'&&sameTextLayout&&metrics.lineCount>1&&label&&p.lineHeight!==undefined){
+    const leading=Math.max(0,(lineHeight*metrics.lineCount-metrics.textHeight*fontScale)/2);
+    label.style.transform=`translateY(${-leading}px)`;
+  }
+  if(node.type==='Button'&&metrics?.paintInsets&&Object.values(metrics.paintInsets).some(value=>value>0)){
+    const paint=el('div','native-paint'),insets=metrics.paintInsets;
+    Object.assign(paint.style,{position:'absolute',pointerEvents:'none',left:`${insets.left}px`,right:`${insets.right}px`,top:`${insets.top}px`,bottom:`${insets.bottom}px`,background:p.background||'transparent',border:p.borderWidth?`${p.borderWidth}px solid ${p.borderColor||'#D6D9D3'}`:'none',borderRadius:`${p.radius||0}px`});
+    n.style.background='transparent';n.style.border='none';n.style.borderRadius='0';n.prepend(paint);
+    if(label){label.style.position='relative';label.style.zIndex='1';}
+  }
+  if(sameTextLayout&&metrics.paintVisible===false){n.style.background='transparent';n.style.border='none';if(label)label.style.visibility='hidden';const paint=n.querySelector('.native-paint');if(paint)paint.style.visibility='hidden';}
+  (node.children || []).forEach(child => n.append(renderNode(child, editable, node.type, frames, fontScale,p.align,textGeometry,modifierBindings,fontScaleCurve,fontHashes)));
   if(frames?.[node.id]) {
     const frame=frames[node.id]; applyFrame(n,frame);
     for(const key of ['width','height']) {
-      if(typeof p[key]==='number')n.style[key]=`${p[key]}px`;
+      if(typeof p[key]==='number')n.style[key]=`${p[key]}px`;else if(p[key]==='auto')size(key,'auto');
     }
   }
   if (editable) {
@@ -239,19 +351,21 @@ function renderNode(node, editable, parentType, frames) {
 function renderPreview() {
   if (resizeCleanup) {resizeCleanup(); resizeCleanup=null;}
   drag.clear($('after'));
-  if ($('zoom').value === 'fit') {
+  if (getZoom() === 'fit') {
     const availableHeight = Math.max(300, $('canvas').clientHeight - 90);
     const availableWidth = Math.max(260, ($('canvas').clientWidth - 85) / ($('beforeStage').hidden ? 1 : 2));
     scale = Math.max(.3, Math.min(.85, availableHeight / Math.max(baseline.viewport.height, doc().viewport.height), availableWidth / Math.max(baseline.viewport.width, doc().viewport.width)));
   }
+  syncZoom(scale);
   for (const [target, value, editable] of [['before', baseline, false], ['after', doc(), true]]) {
     const slot = $(target), w = value.viewport.width, h = value.viewport.height;
     const scrollPositions = new Map([...slot.querySelectorAll('[data-node-id]')].filter(n => n.scrollTop).map(n => [n.dataset.nodeId, n.scrollTop]));
     slot.style.width = `${w * scale}px`; slot.style.height = `${h * scale}px`;
-    const phone = el('div', 'phone'); phone.style.width = `${w}px`; phone.style.height = `${h}px`; phone.style.transform = `scale(${scale})`;
+    const contentOnly=value.viewport.presentation==='content';
+    const phone = el('div', 'phone' + (contentOnly?' content-only':'')); phone.style.width = `${w}px`; phone.style.height = `${h}px`; phone.style.transform = `scale(${scale})`;
     phone.style.background = value.root.props.background || '#F6F7FB';
     const status = el('div', 'statusbar'); status.append(el('span', '', '9:41'), el('span', '', '▴  ▰'));
-    const body = el('div', 'phone-body'); body.append(renderNode(value.root, editable, undefined, freeMode(value)?value.layout?.frames:null)); phone.append(status, body, el('div', 'home-indicator')); slot.replaceChildren(phone);
+    const body = el('div', 'phone-body'); body.append(renderNode(value.root, editable, undefined, freeMode(value)?value.layout?.frames:null,value.viewport.fontScale || 1,undefined,(value.compose?.capture?.fontScale==null||value.compose.capture.fontScale===(value.viewport.fontScale||1))?value.compose?.capture?.textGeometry || {}:{},value.compose?.modifierModel===MODIFIER_MODEL?value.compose.bindings:undefined,(value.compose?.capture?.fontScale==null||value.compose.capture.fontScale===(value.viewport.fontScale||1))?value.compose?.capture?.fontScaleCurve:undefined,value.compose?.capture?.fontHashes)); if(contentOnly)phone.append(body); else phone.append(status, body, el('div', 'home-indicator')); slot.replaceChildren(phone);
     slot.querySelectorAll('[data-node-id]').forEach(n => { if (scrollPositions.has(n.dataset.nodeId)) n.scrollTop = scrollPositions.get(n.dataset.nodeId); });
   }
   renderSelectionFrame();
@@ -322,6 +436,7 @@ function applyResize(gesture,dx,dy) {
   gesture.size=next;positionSelectionFrame();$('saveStatus').textContent=`${next.width.toFixed(1)} × ${next.height.toFixed(1)} dp`;
 }
 function commitResize(gesture) {
+  restoreSaveStatus();
   if(!gesture.changed){renderPreview();return;}
   const next=clone(doc()), props=indexTree(next.root).get(gesture.id).node.props;
   if(gesture.frames)next.layout={mode:'free',frames:gesture.anchoredFrames};
@@ -336,7 +451,7 @@ function beginResize(direction,event) {
   const update=event=>{event.preventDefault();applyResize(gesture,(event.clientX-x)/gesture.scale,(event.clientY-y)/gesture.scale);};
   event.currentTarget.setPointerCapture(event.pointerId);
   const cleanup=()=>{window.removeEventListener('blur',cancel);window.removeEventListener('pointermove',update);window.removeEventListener('pointerup',finish);window.removeEventListener('pointercancel',cancel);window.removeEventListener('keydown',escape,true);document.body.classList.remove('resizing');};
-  const cancel=()=>{cleanup();resizeCleanup=null;renderPreview();notice('Изменение размера отменено.');};
+  const cancel=()=>{cleanup();resizeCleanup=null;restoreSaveStatus();renderPreview();notice('Изменение размера отменено.');};
   const escape=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();cancel();}};
   const finish=event=>{if(event.clientX!==x||event.clientY!==y)update(event);cleanup();resizeCleanup=null;commitResize(gesture);};
   resizeCleanup=cleanup;document.body.classList.add('resizing');
@@ -353,8 +468,8 @@ function field(label, key, kind = 'number', options = {}) {
     for (const value of kind) { const option = el('option', '', options.labels?.[value] || value); option.value = value; input.append(option); }
     input.value = p[key] ?? '';
   } else if (kind === 'size') {
-    sizeMode = el('select'); sizeMode.setAttribute('aria-label', `${label}: режим`);
-    for (const [value, labelText] of [['','По умолчанию'],['auto','По содержимому'],['fill','Заполнить место'],['fixed','Точный размер']]) { const option = el('option','',labelText); option.value=value; if(freeMode()&&value!=='fixed'&&value!=='')option.disabled=true; sizeMode.append(option); }
+    sizeMode = el('select'); sizeMode.setAttribute('aria-label', `${label}: режим`); sizeMode.dataset.focusKey = `size-mode-${key}`;
+    for (const [value, labelText] of [['','По умолчанию'],['auto','По содержимому'],['fill','Заполнить место'],['fixed','Точный размер']]) { const option = el('option','',labelText); option.value=value; if(freeMode()&&value==='fill')option.disabled=true; sizeMode.append(option); }
     sizeMode.value = typeof p[key] === 'number' ? 'fixed' : p[key] ?? '';
     input = el('input'); input.type='number'; input.min=0; input.max=4000; input.step='any'; input.placeholder='Число · dp'; input.value=typeof p[key] === 'number' ? p[key] : ''; input.hidden=sizeMode.value !== 'fixed';
     sizeMode.addEventListener('change', () => updateProperty(key, sizeMode.value === 'fixed' ? 100 : sizeMode.value || undefined));
@@ -362,12 +477,21 @@ function field(label, key, kind = 'number', options = {}) {
   } else if (kind === 'text') {
     input = el('textarea'); input.value = p[key] ?? ''; input.placeholder = options.placeholder || '';
   } else {
-    input = el('input'); input.type = kind; input.value = p[key] ?? ''; if (kind === 'number') { input.min = options.min ?? 0; input.max = options.max ?? 300; input.step = options.step ?? 1; }
+    input = el('input'); input.type = kind; input.value = p[key] ?? ''; if (kind === 'number') { input.min = options.min ?? 0; input.max = options.max ?? 300; input.step = key === 'maxLines' ? 1 : 'any'; }
     if (kind === 'color') input.value = p[key] || (key === 'color' ? '#30384D' : '#FFFFFF');
     if (kind === 'checkbox') input.checked = Boolean(p[key]);
   }
   if(freeMode() && ['align','justify','gap','weight'].includes(key)) {input.disabled=true;input.title='Доступно в автоматической компоновке';}
   input.dataset.property = key; input.setAttribute('aria-label', label);
+  const refreshCapability=()=>{wrapper.querySelector('.transfer-help')?.remove();if(composeCapability(node.type).mode==='agent')return;const binding=doc().compose?.bindings?.[selected];const textBinding=binding?.label?doc().compose.bindings[binding.label]:binding;const capability=composeCapability(node.type,key,indexTree(doc().root).get(selected)?.node.props[key],textBinding);if(capability.mode==='agent'){const button=capabilityHelp('Перенос: '+label,capability.reason);button.classList.add('transfer-help');wrapper.firstElementChild.append(button);}};
+  refreshCapability();
+  const fieldError = el('span', 'field-error'); fieldError.hidden = true;
+  fieldError.id = `property-error-${selected}-${key}`; fieldError.setAttribute('role', 'status');
+  input.setAttribute('aria-describedby', fieldError.id);
+  const showFieldError = message => {
+    input.setCustomValidity(message); input.setAttribute('aria-invalid', String(Boolean(message)));
+    fieldError.textContent = message; fieldError.hidden = !message;
+  };
   const readValue = () => {
     let value = kind === 'size' && sizeMode.value !== 'fixed' ? sizeMode.value : input.value;
     if (kind === 'checkbox') value = input.checked;
@@ -376,24 +500,25 @@ function field(label, key, kind = 'number', options = {}) {
     return value;
   };
   const validateField = value => {
+    if (input.type === 'number' && input.validity.badInput) throw Error('Введите корректное число');
     const next = clone(doc()), props = indexTree(next.root).get(selected)?.node.props;
     if (!props) return;
     if (value === undefined) delete props[key]; else props[key] = value;
     validate(next); return next;
   };
   input.addEventListener('change', () => {
-    try { validateField(readValue()); input.setCustomValidity(''); updateProperty(key, readValue()); }
-    catch (error) { input.setCustomValidity(error.message); notice(error.message, true); }
+    try {
+      const next = validateField(readValue()); showFieldError(''); changed(next, true); refreshCapability();
+      if (kind === 'size' && input.value === '' && sizeMode.value === 'fixed') {sizeMode.value = ''; input.hidden = true;}
+    } catch (error) { showFieldError(error.message); }
   });
   if (['size', 'number', 'text'].includes(kind)) input.addEventListener('input', () => {
-    const value = readValue(), next = clone(doc());
-    const props = indexTree(next.root).get(selected)?.node.props;
-    if (!props) return;
-    if (value === undefined) delete props[key]; else props[key] = value;
-    try { validate(next); input.setCustomValidity(''); changed(next, true); } catch (error) { input.setCustomValidity(error.message); }
+    try { const next = validateField(readValue()); showFieldError(''); changed(next, true); refreshCapability(); }
+    catch (error) { showFieldError(error.message); }
   });
-  wrapper.append(input); return wrapper;
+  wrapper.append(input, fieldError); return wrapper;
 }
+setupHelp({isFree:freeMode, onAuto:() => setLayoutMode('auto')});
 function section(title, fields = []) {
   const group = el('details', 'prop-section'), summary = el('summary', '', title);
   group.open = sectionState.get(title) ?? title === 'Содержимое';
@@ -402,92 +527,133 @@ function section(title, fields = []) {
 }
 function renderInspector() {
   const map = indexTree(doc().root); if (!map.has(selected)) selected = doc().root.id;
-  const entry = map.get(selected), node = entry.node, container = CONTAINERS.includes(node.type), panel = $('inspector'); panel.replaceChildren();
-  panel.append(el('p','prop-help',freeMode()?'Свободная компоновка: границы меняются без движения содержимого. Перетаскивание контейнера двигает его вместе с детьми. Для размеров по содержимому, заполнения и выравнивания переключитесь на автоматическую компоновку.':'Автоматическая компоновка: Row/Column рассчитывают положение соседей по размерам и выравниванию.'));
-  const intro = el('div'); intro.append(el('div', 'selected-title', node.id), el('span', 'type-tag', node.type)); panel.append(intro);
+  const entry = map.get(selected), node = entry.node, container = CONTAINERS.includes(node.type), panel = $('inspector');
+  const focusKey = panel.contains(document.activeElement) ? document.activeElement.dataset.focusKey : undefined;
+  // toggle может ещё не прийти, когда правка уже требует нового inspector.
+  for (const group of panel.querySelectorAll('details.prop-section')) sectionState.set(group.querySelector('summary').textContent, group.open);
+  panel.replaceChildren();
+  const intro = el('div'); intro.append(el('div', 'selected-title', nodeName(node)), el('span', 'type-tag', typeNames[node.type] || node.type));
+  const remove = el('button', 'danger delete-element', 'Удалить элемент');
+  remove.type = 'button'; remove.disabled = !entry.parent;
+  remove.title = entry.parent ? 'Удалить выбранный элемент · Delete' : 'Корневой контейнер экрана нельзя удалить';
+  const capability=composeCapability(node.type);if(capability.mode==='agent')intro.querySelector('.type-tag').append(capabilityHelp('Подключение элемента',capability.reason));
+  remove.addEventListener('click', removeSelected); intro.append(remove); panel.append(intro);
   if (['Text', 'Button', 'Icon', 'TextField', 'Image'].includes(node.type)) panel.append(section('Содержимое', [field('Текст', 'text', 'text', { full: true }), ...(node.type === 'Image' ? [field('URL изображения (https)', 'src', 'text', { full: true })] : [])]));
   if (node.type === 'Switch') panel.append(section('Состояние', [field('Включено', 'checked', 'checkbox')]));
   if (['Text', 'Button', 'Icon', 'TextField'].includes(node.type)) {
     const typography = section('Форматирование текста', [
       field('Выравнивание текста', 'textAlign', ['start', 'center', 'end', 'justify'], {full:true, labels:{start:'По левому краю',center:'По центру',end:'По правому краю',justify:'По ширине'}}),
+      field('Семейство шрифта','fontFamily',FONT_FAMILIES,{full:true,labels:{system:'Системный',Roboto:'Roboto','Roboto Flex':'Roboto Flex','Sans Serif':'Без засечек',Serif:'С засечками',Monospace:'Моноширинный',Cursive:'Рукописный'}}),
       field('Шрифт · sp', 'fontSize', 'number', {min:6,max:100,step:.5}),
       field('Высота строки', 'lineHeight', 'number', {min:6,max:150,step:.5}),
       field('Толщина шрифта', 'fontWeight', [100,200,300,400,500,600,700,800,900].map(String), {labels:{400:'Обычный · 400',500:'Средний · 500',600:'Полужирный · 600',700:'Жирный · 700'}}),
       field('Начертание', 'fontStyle', ['normal','italic'], {labels:{normal:'Обычное',italic:'Курсив'}}),
       field('Подчёркивание', 'textDecoration', ['none','underline'], {labels:{none:'Нет',underline:'Да'}}),
+      field('Межбуквенный интервал · sp','letterSpacing','number',{min:-5,max:20,step:.1}),
+      field('Максимум строк','maxLines','number',{min:1,max:100,step:1}),
+      field('Обрезка текста','textOverflow',['clip','ellipsis'],{labels:{clip:'По границе',ellipsis:'Многоточие'}}),
       field('Цвет текста', 'color', 'color')
     ]);
-    typography.append(el('p', 'prop-help', 'Выравнивает строки внутри блока. Для заметного эффекта выберите ширину «Заполнить место» или задайте точный размер.')); panel.append(typography);
+    sectionHelp(typography, 'Форматирование текста'); panel.append(typography);
   }
   const sizes = section('Размер', [field('Ширина', 'width', 'size'), field('Высота', 'height', 'size')]);
-  sizes.append(el('p', 'prop-help', '«По содержимому» — размер текста или детей. «Заполнить место» — всё доступное место. «Точный размер» — число в dp, единицах размера Android.'));
+  sectionHelp(sizes, 'Размер');
   if (entry.parent && ['Column','Row','Card'].includes(map.get(entry.parent).node.type)) {
-    sizes.append(field('Доля свободного места', 'weight', 'number', {max:100,step:.1,full:true}), el('p','prop-help', 'Необязательно. Делит оставшееся место между соседями: 1 и 1 — поровну, 1 и 2 — одна треть и две трети. В Row влияет на ширину, в Column — на высоту. Пусто или 0 — не участвовать.'));
+    sizes.append(field('Доля свободного места', 'weight', 'number', {max:100,step:.1,full:true}));
   }
   panel.append(sizes);
-  panel.append(section('Расположение', [field('Смещение по горизонтали · dp','offsetX','number',{min:-4000,max:4000,step:.1}),field('Смещение по вертикали · dp','offsetY','number',{min:-4000,max:4000,step:.1}),field(container ? 'Выравнивание детей' : 'Положение элемента', 'align', ['start', 'center', 'end', 'stretch'], { full: true, labels:{start:'В начале',center:'По центру',end:'В конце',stretch:'Растянуть'} }), ...(container ? [field('Распределение', 'justify', ['start', 'center', 'end', 'space-between'], { full: true, labels:{start:'В начале',center:'По центру',end:'В конце','space-between':'Равные промежутки'} })] : []), field('Отступ внутри · dp', 'padding'), ...(container ? [field('Между детьми · dp', 'gap')] : []), field('Отступ по горизонтали · dp', 'paddingHorizontal'), field('Отступ по вертикали · dp', 'paddingVertical'), ...(container ? [field('Прокрутка содержимого', 'scrollable', 'checkbox', {full:true})] : [])]));
+  const position = section('Расположение', [field('Смещение по горизонтали · dp','offsetX','number',{min:-4000,max:4000,step:.1}),field('Смещение по вертикали · dp','offsetY','number',{min:-4000,max:4000,step:.1}),field(container ? 'Выравнивание детей' : 'Положение элемента', 'align', ['start', 'center', 'end', 'stretch'], { full: true, labels:{start:'В начале',center:'По центру',end:'В конце',stretch:'Растянуть'} }), ...(container ? [field('Распределение', 'justify', ['start', 'center', 'end', 'space-between'], { full: true, labels:{start:'В начале',center:'По центру',end:'В конце','space-between':'Равные промежутки'} })] : []), field('Отступ внутри · dp', 'padding'), ...(container ? [field('Между детьми · dp', 'gap')] : []), field('Отступ по горизонтали · dp', 'paddingHorizontal'), field('Отступ по вертикали · dp', 'paddingVertical'), ...(container ? [field('Прокрутка содержимого', 'scrollable', 'checkbox', {full:true})] : [])]);
+  sectionHelp(position, 'Расположение');
+  panel.append(position);
   panel.append(section('Оформление', [field('Радиус · dp', 'radius', 'number', { max: 200 }), field('Фон', 'background', 'color'), field('Обводка · dp', 'borderWidth', 'number', {max:10,step:.5}), field('Цвет обводки', 'borderColor', 'color')]));
   if (entry.parent) {
-    const controls = section('Перемещение'); controls.append(el('p','prop-help','На макете тяните сам элемент для свободного перемещения. Для изменения порядка или вложенности перетащите строку за ⠿ слева. Линия показывает место вставки. Центр контейнера — перенос внутрь; Shift также переносит внутрь. Здесь можно переместить кнопками. Свободных координат пока нет.'));
+    const controls = section('Перемещение'); sectionHelp(controls, 'Перемещение');
     const wrapper = el('label', 'prop'); wrapper.append(el('span', '', 'Родитель'));
-    const input = el('select'); input.id = 'parentSelect';
+    const input = el('select'); input.id = 'parentSelect'; input.dataset.focusKey = 'parent';
     const descendants = indexTree(node);
-    for (const [id, item] of map) if (CONTAINERS.includes(item.node.type) && !descendants.has(id)) { const option = el('option', '', id); option.value = id; input.append(option); }
+    for (const [id, item] of map) if (CONTAINERS.includes(item.node.type) && !descendants.has(id)) { const option = el('option', '', nodeName(item.node)); option.value = id; input.append(option); }
     input.value = entry.parent; input.addEventListener('change', () => { try { changed(move(doc(), selected, input.value, map.get(input.value).node.children?.length || 0)); } catch (error) { notice(error.message, true); } }); wrapper.append(input); controls.append(wrapper);
     const buttons = el('div', 'move-actions');
-    for (const [label, offset] of [['↑ Раньше', -1], ['↓ Позже', 1]]) { const button = el('button', '', label); button.disabled = entry.index + offset < 0 || entry.index + offset >= map.get(entry.parent).node.children.length; button.addEventListener('click', () => changed(move(doc(), selected, entry.parent, entry.index + offset))); buttons.append(button); }
+    for (const [label, offset] of [['↑ Раньше', -1], ['↓ Позже', 1]]) { const button = el('button', '', label); button.dataset.focusKey = offset < 0 ? 'move-earlier' : 'move-later'; button.disabled = entry.index + offset < 0 || entry.index + offset >= map.get(entry.parent).node.children.length; button.addEventListener('click', () => changed(move(doc(), selected, entry.parent, entry.index + offset))); buttons.append(button); }
     controls.append(buttons);
-    const remove = el('button', 'danger', 'Удалить элемент'); remove.style.marginTop = '10px'; remove.addEventListener('click', () => { const next = clone(doc()), items = indexTree(next.root), parent = items.get(entry.parent).node; parent.children = parent.children.filter(n => n.id !== selected); selected = entry.parent; changed(next); }); controls.append(remove); panel.append(controls);
+    panel.append(controls);
   }
   const source = section('Связь с кодом'); source.classList.add('source-box');
   if (node.source) { source.append(el('code', '', node.source.file || 'Файл не указан'), el('code', '', node.source.symbol || ''), el('span', '', node.source.instance || '')); if (node.source.note) source.append(el('p', '', node.source.note)); }
-  else source.append(el('span', '', 'Нет прямой ссылки. Агент использует дерево и ближайший компонент со source.'));
-  source.append(el('div', '', `Ревизия: ${baseline.sourceRevision || 'не указана'}`)); panel.append(source);
+  else source.append(el('span', '', 'Нет прямой ссылки'));
+  sectionHelp(source, 'Связь с кодом');
+  source.append(el('div', '', `Ревизия: ${baseline.sourceRevision || 'не указана'}`)); $('technicalDetails').replaceChildren(source);
   if (selected === doc().root.id) {
     const settings = section('Размер экрана · dp');
     const grid = el('div', 'prop-grid');
-    for (const [key, label] of [['width', 'Ширина'], ['height', 'Высота']]) { const wrapper = el('label', 'prop'); wrapper.append(el('span', '', label)); const input = el('input'); input.type = 'number'; input.value = doc().viewport[key]; input.min = 200; input.max = key === 'width' ? 1500 : 2000; input.addEventListener('change', () => { const next = clone(doc()); next.viewport[key] = Number(input.value); changed(next); }); wrapper.append(input); grid.append(wrapper); }
-    settings.append(grid, el('p', 'source-box', 'Веб-превью приблизительное. Финальный результат проверяется в Android.')); panel.append(settings);
+    for (const [key, label] of [['width', 'Ширина'], ['height', 'Высота']]) { const wrapper = el('label', 'prop'); wrapper.append(el('span', '', label)); const input = el('input'); input.type = 'number'; input.value = doc().viewport[key]; input.step = 'any'; input.min = 200; input.max = key === 'width' ? 1500 : 2000; input.addEventListener('change', () => { const next = clone(doc()); next.viewport[key] = Number(input.value); changed(next); }); wrapper.append(input); grid.append(wrapper); }
+    settings.append(grid); panel.append(settings);
+  }
+  if (focusKey) {
+    const target = [...panel.querySelectorAll('[data-focus-key]')].find(element => element.dataset.focusKey === focusKey);
+    const fallback = panel.querySelector('.move-actions button:not(:disabled)') || panel.querySelector('#parentSelect');
+    (target && !target.disabled ? target : fallback)?.focus({ preventScroll: true });
   }
 }
+const propertyNames={text:'Текст',offsetX:'Смещение по горизонтали',offsetY:'Смещение по вертикали',width:'Ширина',height:'Высота',fontSize:'Размер шрифта',lineHeight:'Высота строки',letterSpacing:'Межбуквенный интервал',textAlign:'Выравнивание текста',color:'Цвет текста',background:'Фон',radius:'Скругление',padding:'Отступ внутри',paddingHorizontal:'Отступ по горизонтали',paddingVertical:'Отступ по вертикали',gap:'Между элементами',layout:'Компоновка',align:'Выравнивание',justify:'Распределение',add:'Добавление',remove:'Удаление',move:'Перемещение',borderWidth:'Обводка',borderColor:'Цвет обводки',fontWeight:'Толщина шрифта',fontFamily:'Шрифт',fontStyle:'Начертание',textDecoration:'Подчёркивание',maxLines:'Максимум строк',textOverflow:'Обрезка текста',weight:'Доля свободного места',opacity:'Непрозрачность',enabled:'Доступность',clipContent:'Обрезка содержимого',scrollable:'Прокрутка'};
 function renderDiff() {
   renderHandoff();
-  const changes = diff(baseline, doc()).changes; $('changeCount').textContent = `${changes.length} изменений`; $('diffBadge').textContent = changes.length;
+  const result=diff(baseline,doc()), changes=result.intent.changes; $('changeCount').textContent = `Правок: ${changes.length}`; $('diffBadge').textContent = changes.length;
   $('diffList').replaceChildren();
-  if (!changes.length) $('diffList').append(el('div', 'empty', 'Правок пока нет. Выбери элемент в правом макете или в дереве.'));
+  if (!changes.length) $('diffList').append(el('div', 'empty', 'Правок пока нет.'));
   for (const change of changes) {
-    const row = el('div', 'diff-row'); const format = v => change.property==='layout' && v ? `${v.mode==='auto'?'Автоматическая':'Свободная'} · ${Object.keys(v.frames||{}).length} позиций` : v === null ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v);
-    row.append(el('code', '', `${change.id || 'Экран'} · ${change.property==='layout'?'Компоновка':change.property || change.operation}`), el('span', 'old', format(change.before)), el('span', '', '→ ' + format(change.after))); $('diffList').append(row);
+    const row = el('div', 'diff-row'); const format = v => change.property==='layout' && v ? `${v.mode==='auto'?'Автоматическая':'Свободная'} · ${Object.keys(v.frames||{}).length} позиций` : v === null ? '—' : typeof v === 'object' ? (v.type ? nodeName(v) : typeof v.width==='number' && typeof v.height==='number' ? `${v.width} × ${v.height}` : 'Изменено') : ({center:'По центру',start:'В начале',end:'В конце',stretch:'Растянуть',auto:'Автоматически',fill:'Заполнить',true:'Да',false:'Нет'}[String(v)] || String(v));
+    row.append(el('code', '', `${change.id ? nodeName(indexTree(doc().root).get(change.id)?.node || indexTree(baseline.root).get(change.id)?.node) : 'Экран'} · ${propertyNames[change.property] || propertyNames[change.operation] || 'Изменение'}`), el('span', 'old', format(change.before)), el('span', '', '→ ' + format(change.after))); $('diffList').append(row);
   }
+
 }
-function render() { $('layoutMode').value=freeMode()?'free':'auto'; renderTree(); renderPreview(); renderInspector(); renderDiff(); $('undo').disabled = !history.past.length; $('redo').disabled = !history.future.length; }
+function render() { const nativeLink=document.querySelector('.native-link');if(nativeLink){nativeLink.textContent=doc().compose?'Эталон Android':'Нативный кадр';nativeLink.onclick=doc().compose?event=>{event.preventDefault();$('baselineStatus').click();}:null;} $('layoutMode').value=freeMode()?'free':'auto'; renderTree(); renderPreview(); renderInspector(); renderDiff(); $('undo').disabled = !history.past.length; $('redo').disabled = !history.future.length; }
 function download(value, filename) { const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2) + '\n'], { type: 'application/json' })); const a = el('a'); a.href = url; a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 function historyAction(action) {
-  history[action](); localSave(); render(); clearTimeout(draftTimer); draftTimer = setTimeout(() => queueSave().catch(error => notice(error.message, true)), 500);
+  history[action](); localSave(); render(); clearTimeout(draftTimer);
+  setSaveStatus('Есть несохранённые правки');
+  draftTimer = setTimeout(() => queueSave().catch(error => { notice(error.message, true); setSaveStatus('Не сохранено'); }), 500);
 }
 $('undo').onclick = () => historyAction('undo'); $('redo').onclick = () => historyAction('redo');
 $('reset').onclick = () => { changed(clone(baseline),false,true); notice('Правки сброшены. Undo вернёт предыдущий вариант.'); };
-$('layoutMode').onchange=()=>{const next=clone(doc()); next.layout=$('layoutMode').value==='free'?{mode:'free',frames:captureFrames()}:{mode:'auto'}; changed(next); notice(freeMode()?'Свободный режим: размеры не сдвигают соседей.':'Автоматическая компоновка: размеры влияют на соседей.');};
-$('zoom').onchange = () => { if ($('zoom').value !== 'fit') scale = Number($('zoom').value); renderPreview(); };
+function setLayoutMode(mode) {const next=clone(doc()); next.layout=mode==='free'?{mode:'free',frames:captureFrames()}:{mode:'auto'}; changed(next); notice(freeMode()?'Включена свободная компоновка.':'Включена автоматическая компоновка.');}
+$('layoutMode').onchange=()=>setLayoutMode($('layoutMode').value);
+setupZoom(() => { if (getZoom() !== 'fit') scale = Number(getZoom()); renderPreview(); });
 $('compare').onclick = () => { $('beforeStage').hidden = false; $('compare').classList.add('active'); $('single').classList.remove('active'); renderPreview(); };
 $('single').onclick = () => { $('beforeStage').hidden = true; $('single').classList.add('active'); $('compare').classList.remove('active'); renderPreview(); };
 $('export').onclick = () => download(doc(), 'proposed.json');
 $('exportDiff').onclick = () => download(diff(baseline, doc()), 'changes.json');
+setupBaseline({write:async(url,payload)=>{
+  clearTimeout(draftTimer); await queueSave();
+  const value=await api(url,'POST',{...payload,revision});
+  revision=value.revision; localSave(); return value;
+}});
 $('import').onclick = () => $('file').click();
 $('file').onchange = async () => {
   const file = $('file').files[0]; if (!file) return;
   try {
     if (file.size > 2_000_000) throw Error('Файл больше 2 MB');
-    const value = validate(JSON.parse(await file.text())); clearTimeout(draftTimer); await saveQueue.catch(() => {});
-    const result = await api('/api/session', 'PUT', { revision, document: value }); revision = result.revision; baseline = clone(result.baseline); history = new History(result.current); await loadApplied(result); selected = value.root.id; conflict = false; localSave(); render(); notice(`Загружен макет «${value.name}»`); $('saveStatus').textContent = 'Макет загружен ✓';
-  } catch (error) { notice(error.message, true); } finally { $('file').value = ''; }
+    const value = validate(JSON.parse(await file.text())); document.body.inert = true;
+    clearTimeout(draftTimer); await queueSave();
+    const result = await api('/api/session', 'PUT', { revision, document: value }); revision = result.revision; baseline = clone(result.baseline); history = History.restore(result.current,result.history); await loadApplied(result); selected = value.root.id; conflict = false; localSave(); render(); notice(`Загружен макет «${value.name}»`); setSaveStatus('Макет загружен ✓');
+  } catch (error) { notice(error.message, true); setSaveStatus('Импорт не выполнен'); }
+  finally { document.body.inert = false; $('file').value = ''; }
 };
 $('apply').onclick = async () => {
   const invalid = $('inspector').querySelector(':invalid');
   if (invalid) { invalid.reportValidity(); notice('Исправьте некорректное значение перед передачей агенту.', true); return; }
   clearTimeout(draftTimer); $('apply').disabled = true;
-  try { const result = await queueSave('/api/apply'); await loadApplied(result); renderHandoff(); notice('Снимок сохранён. Кнопка не запускает агента. Откройте отчёт для следующего шага.'); }
+  try { const result = await queueSave('/api/apply'); await loadApplied(result); renderHandoff(); notice('Снимок сохранён.'); }
   catch (error) { notice(error.message, true); } finally { $('apply').disabled = false; }
+};
+$('restoreSession').onclick = async () => {
+  clearTimeout(draftTimer);
+  try {
+    await queueSave(); const state=await api('/api/session/restore','POST',{revision});
+    revision=state.revision; baseline=clone(state.baseline); history=History.restore(state.current,state.history);
+    await loadApplied(state); selected=doc().root.id; localSave(); render();
+    notice('Предыдущая сессия восстановлена. Заменённая сессия также сохранена.'); setSaveStatus('Черновик сохранён ✓');
+  } catch(error) { notice(error.message,true); }
 };
 $('readReport').onclick = () => { $('reportText').textContent = appliedReport; $('reportDialog').showModal(); };
 $('closeReport').onclick = () => $('reportDialog').close();
@@ -495,34 +661,37 @@ $('downloadReport').onclick = () => { const url = URL.createObjectURL(new Blob([
 $('toggleChanges').onclick = () => { const hidden = !$('changesBody').hidden; $('changesBody').hidden = hidden; $('toggleChanges').setAttribute('aria-expanded', !hidden); renderPreview(); };
 $('reload').onclick = async () => {
   clearTimeout(draftTimer);
-  try { await saveQueue.catch(() => {}); const state = await api('/api/session'); revision = state.revision; baseline = clone(state.baseline); history = new History(state.current); await loadApplied(state); selected = state.current.root.id; conflict = false; localSave(); render(); notice('Загружена серверная версия.'); $('saveStatus').textContent = 'Синхронизировано ✓'; } catch (error) { notice(error.message, true); }
+  try { await saveQueue.catch(() => {}); const state = await api('/api/session'); revision = state.revision; baseline = clone(state.baseline); history = History.restore(state.current,state.history); await loadApplied(state); selected = state.current.root.id; conflict = false; localSave(); render(); notice('Загружена серверная версия.'); setSaveStatus('Синхронизировано ✓'); } catch (error) { notice(error.message, true); }
 };
-for (const type of TYPES) { const option = el('option', '', type); option.value = type; $('newType').append(option); }
+for (const type of TYPES) { const option = el('option', '', typeNames[type] || type); option.value = type; $('newType').append(option); }
 $('add').onclick = () => {
   const next = clone(doc()), parent = indexTree(next.root).get(selected).node, type = $('newType').value;
   if (!CONTAINERS.includes(parent.type)) return;
-  const id = `${type.toLowerCase()}-${crypto.randomUUID().slice(0, 8)}`, props = CONTAINERS.includes(type) ? { padding: 8, gap: 8, width: 'fill' } : type === 'Spacer' ? { height: 16 } : type === 'Switch' ? { checked: false } : { text: type, fontSize: 15 };
+  const id = `${type.toLowerCase()}-${crypto.randomUUID().slice(0, 8)}`, props = CONTAINERS.includes(type) ? { padding: 8, gap: 8, width: 'fill' } : type === 'Spacer' ? { height: 16 } : type === 'Switch' ? { checked: false } : { text: type === 'Text' ? 'Новый текст' : typeNames[type] || type, fontSize: 15, ...(type === 'Text' ? {width:'auto',height:'auto'} : {}) };
   if (type === 'Button') Object.assign(props, { height: 48, padding: 16, radius: 12, background: '#6754C8', color: '#FFFFFF', width: 'auto' });
   parent.children ||= []; parent.children.push({ id, type, props, ...(CONTAINERS.includes(type) ? { children: [] } : {}) }); selected = id; changed(next);
 };
 window.addEventListener('keydown', event => {
-  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName) || !history) return;
+  if (document.body.inert) return;
+  if (event.target.closest('input, textarea, [contenteditable]:not([contenteditable="false"])') || !history || document.querySelector('dialog[open]') || document.body.matches('.dragging, .resizing')) return;
+  if (event.key === 'Delete' && !event.target.closest('select') && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) { event.preventDefault(); removeSelected(); }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); historyAction(event.shiftKey ? 'redo' : 'undo'); }
 });
 document.addEventListener('click', event => { if (suppressClick && event.target.closest('[data-node-id]')) { event.preventDefault(); event.stopPropagation(); } }, true);
 window.addEventListener('beforeunload', () => { if (history) localSave(); });
 window.addEventListener('resize', () => { if (history) renderPreview(); });
 try {
-  const state = await api('/api/session'); revision = state.revision; baseline = clone(state.baseline); history = new History(state.current); await loadApplied(state); selected = doc().root.id;
+  const state = await api('/api/session'); revision = state.revision; baseline = clone(state.baseline); history = History.restore(state.current,state.history); await loadApplied(state); selected = doc().root.id;
   try {
     const cache = JSON.parse(localStorage.getItem(CACHE));
     if (cache && cache.revision === revision && JSON.stringify(cache.baseline) === JSON.stringify(baseline) && JSON.stringify(cache.document) !== JSON.stringify(doc())) {
-      history = new History(validate(cache.document)); notice('Восстановлены последние локальные правки.'); draftTimer = setTimeout(() => queueSave().catch(error => notice(error.message, true)), 500);
+      history = History.restore(validate(cache.document),cache.history); notice('Восстановлены последние локальные правки.'); draftTimer = setTimeout(() => queueSave().catch(error => notice(error.message, true)), 500);
     }
   } catch { /* Invalid or unavailable cache must not block loading. */ }
   if (innerWidth < 1050 && innerWidth > 640) { $('beforeStage').hidden = true; $('single').classList.add('active'); $('compare').classList.remove('active'); }
-  render(); $('saveStatus').textContent = 'Черновик сохранён ✓';
-  if (baseline.sourceRevision === 'demo-only') notice('Демо-экран · импортируй JSON своего экрана, подготовленный агентом. Ссылки на Kotlin здесь демонстрационные.');
+  render(); setSaveStatus('Черновик сохранён ✓');
+  await loadProject().catch(error=>notice('Не удалось загрузить каталог экранов: '+error.message,true));
+  if (baseline.sourceRevision === 'demo-only') notice('Демонстрационный макет. Связи с Kotlin демонстрационные.');
   else if (Array.isArray(baseline.state?.notes) && baseline.state.notes[0]) notice(baseline.state.notes[0]);
 } catch (error) {
   notice(`Не удалось загрузить макет: ${error.message}. Запусти локальный сервер и перезагрузи страницу.`, true);

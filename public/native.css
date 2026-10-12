@@ -1,0 +1,43 @@
+body.native-mode .add-section{display:block}
+.native-mode #canvas{align-items:flex-start}
+.native-mode .native-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid #e3e6ee;background:white}
+.native-mode .native-tools label{margin:0;display:flex;align-items:center;gap:8px;font-size:12px}
+.native-mode .native-tools select{max-width:240px}
+.native-mode .phone-slot{position:relative;flex-shrink:0;overflow:visible;margin:auto}
+.native-mode .native-image-wrap{position:absolute;top:0;left:0;line-height:0;transform-origin:top left}
+.native-mode .native-image-wrap img{display:block;width:100%;height:auto;pointer-events:none;user-select:none}
+.native-mode .native-overlay{position:absolute;inset:0;overflow:hidden}
+.native-mode .native-bound{position:absolute;padding:0;border:1px solid transparent;border-radius:0;background:transparent;min-width:0;min-height:0;touch-action:none}
+.native-mode .native-bound:hover{border-color:#8065db;background:#8065db13}
+.native-mode .native-bound.selected{border:2px solid #8065db;background:#8065db18}
+.native-mode .native-row{display:block;width:100%;text-align:left;border:0;border-radius:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:2px 0;padding:7px;background:transparent;font-size:12px}
+.native-mode .native-row.selected{background:#eee8ff;color:#6049ac}
+.native-mode .native-row.removed{text-decoration:line-through;opacity:.65}
+.native-mode .native-ghost{position:absolute;border:2px dashed #6954c6;pointer-events:none;background:#6954c610;line-height:normal}
+.native-mode .native-ghost span{position:absolute;left:0;bottom:100%;font-size:10px;white-space:nowrap;color:#6954c6;background:white;padding:2px}
+.native-mode .native-handle{position:absolute;width:9px;height:9px;background:white;border:1px solid #6954c6;padding:0;border-radius:1px;pointer-events:auto;touch-action:none;min-width:0;min-height:0;z-index:3}
+.native-mode #nativeCaption{font-size:11px;overflow-wrap:anywhere;padding:8px 16px;color:#626a7d}
+.native-mode #nativeInspector{overflow-wrap:anywhere;font-size:12px}
+.native-mode #nativeInspector details,.native-mode #nativeSources{border-bottom:1px solid #e5e8f0;padding:10px 0}
+.native-mode #nativeInspector summary,.native-mode #nativeSources summary{cursor:pointer;font-weight:600}
+.native-mode #nativeInspector pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px}
+.native-mode .native-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:8px}
+.native-mode .native-fields label{font-size:11px;color:#596173;display:flex;flex-direction:column;gap:4px;margin:0}
+.native-mode .native-fields input,.native-mode .native-fields select{width:100%;min-width:0;height:30px;font:inherit;border:1px solid #d9deea;border-radius:5px;padding:4px;background:white;color:#283247}
+.native-mode .native-fields .full{grid-column:1/-1}
+.native-mode .native-intent{font-size:12px;border-bottom:1px solid #e5e8f0;padding:8px 0;overflow-wrap:anywhere;display:flex;justify-content:space-between;gap:10px}
+.native-mode .native-intent button{padding:3px 6px}
+.native-mode .native-ack{display:flex;align-items:flex-start;gap:7px;font-size:12px;margin:10px 0}
+.native-mode .native-ack input{width:auto;margin-top:2px}
+.native-mode #nativeConnectionDialog{max-width:650px;width:90vw}
+.native-mode #connectNative{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.native-mode #connectNative label{font-size:12px;display:flex;flex-direction:column;gap:4px}
+.native-mode #connectNative input{width:100%;min-width:0}
+.native-mode #nativeSearch{width:100%;min-width:0;padding:7px;margin:8px 0;border:1px solid #d9deea;border-radius:5px}
+.native-mode .native-collapse{float:left;border:0;padding:4px;background:transparent}
+.native-mode .native-source-location{font-size:11px;margin:6px 0}
+.native-mode .native-empty{padding:24px;color:#697083}
+.native-mode .native-mode-tag{font-size:10px;color:#6954c6}
+@media(max-width:640px){.native-mode #connectNative{grid-template-columns:1fr}.native-mode .native-tools{padding:8px}.native-mode .native-tools select{max-width:180px}}
+
+.native-mode .native-tree-item{display:flex;align-items:center}.native-mode .native-collapse{float:none;flex-shrink:0}.native-mode .native-tree-item .native-row{min-width:0}

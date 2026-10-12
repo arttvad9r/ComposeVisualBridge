@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "name": "Браузерные сценарии — вложенность и перекрытия",
+  "sourceRevision": "browser-fixture-only",
+  "viewport": {"width": 412, "height": 1100},
+  "root": {
+    "id": "screen", "type": "Column",
+    "props": {"width": "fill", "height": "fill", "padding": 24, "gap": 20, "background": "#F6F7FB"},
+    "children": [
+      {"id": "title", "type": "Text", "props": {"text": "Проверка редактора", "fontSize": 24, "width": "fill"}},
+      {"id": "source", "type": "Card", "props": {"width": "fill", "height": 180, "padding": 16, "gap": 12, "background": "#FFFFFF"}, "children": [
+        {"id": "sourceLabel", "type": "Text", "props": {"text": "Исходный контейнер", "fontSize": 16}},
+        {"id": "nested", "type": "Row", "props": {"width": "fill", "gap": 8}, "children": [
+          {"id": "first", "type": "Text", "props": {"text": "Первый", "width": 130, "height": 40, "background": "#DDE5FF"}},
+          {"id": "second", "type": "Text", "props": {"text": "Второй", "width": 130, "height": 40, "background": "#FFE8CC", "offsetX": -40}}
+        ]},
+        {"id": "movable", "type": "Button", "props": {"text": "Перенеси меня", "width": 180, "height": 44, "background": "#6754C8", "color": "#FFFFFF"}}
+      ]},
+      {"id": "target", "type": "Card", "props": {"width": "fill", "height": 180, "padding": 16, "gap": 12, "background": "#E5F4EA"}, "children": [
+        {"id": "targetLabel", "type": "Text", "props": {"text": "Целевой контейнер", "fontSize": 16}}
+      ]},
+      {"id": "spacer", "type": "Spacer", "props": {"height": 340}},
+      {"id": "bottom", "type": "Text", "props": {"text": "Элемент после прокрутки", "width": "fill", "height": 60, "background": "#DDE5FF"}}
+    ]
+  }
+}
