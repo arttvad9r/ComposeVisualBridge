@@ -16,6 +16,7 @@
 
 | Задача | Команда | Инструкция |
 |---|---|---|
+| Все экраны проекта в редактор (основной путь, без эмулятора) | `scripts/plugin.mjs edit-previews` с адаптером | [previews](docs/previews.md) |
 | Редактировать элементы поддерживаемого Compose-экрана | `scripts/plugin.mjs edit-compose` | [browser-compose](docs/browser-compose.md) |
 | Экран с локальным состоянием, циклом или собственным компонентом | `edit-scene` с адаптером | [browser-compose](docs/browser-compose.md) |
 | Android-эталон, просмотр PNG, native-редактор | `prepare-native`, `native-build`, `native-catalog`, `native-run` | [native-ui](docs/native-ui.md) |

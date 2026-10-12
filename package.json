@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test tests.mjs tests/integration.test.mjs tests/plugin.test.mjs tests/baseline.test.mjs tests/native.test.mjs tests/native-project.test.mjs tests/source-map.test.mjs tests/native-editor.test.mjs tests/native-device.test.mjs tests/compose.test.mjs tests/scene.test.mjs tests/instrumentation-storage.test.mjs tests/transfer-result.test.mjs tests/project.test.mjs tests/live.test.mjs",
+    "test": "node --test tests.mjs tests/integration.test.mjs tests/plugin.test.mjs tests/baseline.test.mjs tests/native.test.mjs tests/native-project.test.mjs tests/source-map.test.mjs tests/native-editor.test.mjs tests/native-device.test.mjs tests/compose.test.mjs tests/scene.test.mjs tests/instrumentation-storage.test.mjs tests/transfer-result.test.mjs tests/project.test.mjs tests/live.test.mjs tests/previews.test.mjs",
     "test:browser": "playwright test",
     "pretest:browser": "npm run build",
     "build": "node scripts/build.mjs",
