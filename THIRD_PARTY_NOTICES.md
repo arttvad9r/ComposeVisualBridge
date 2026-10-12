@@ -307,3 +307,15 @@ LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 ```
+
+## Roboto (Android)
+
+Включён оригинальный variable Roboto из [Android Open Source Project](https://android.googlesource.com/platform/external/roboto-fonts/+/refs/heads/main/): Roboto-Regular.ttf, версия 3.005, с осями веса, ширины и italic. Файл не изменён. Copyright 2011 Google Inc. All Rights Reserved. Лицензия Apache 2.0 и NOTICE поставляются в public/fonts/Roboto-NOTICE.txt. Шрифт совпал по SHA-256 с системным Roboto тестового Android API 36; загрузка с CDN не требуется.
+
+## Roboto 3.015 (Android API 37)
+
+Дополнительно включён неизменённый Roboto-Regular.ttf из тестового Android API 37, SHA-256 `d5633ff957d2ecb1ce7716e86e11057091c3526042efe16fe1f65dfc06a65551`. Copyright 2011 The Roboto Project Authors. [Исходный проект и выпуск 3.015](https://github.com/googlefonts/roboto-3-classic/releases/tag/v3.015); [SIL Open Font License 1.1](https://github.com/googlefonts/roboto-3-classic/blob/main/OFL.txt) поставляется в `public/fonts/Roboto-3.015-OFL.txt`. Файл шрифта не изменён. Браузер выбирает его для известного хеша системного Roboto в захвате; прежний 3.005 сохранён для старых сессий/API 36. Другие системные версии требуют проверки/адаптера.
+
+## Roboto Flex
+
+Встроен [Roboto Flex из Google Fonts](https://github.com/google/fonts/tree/main/ofl/robotoflex). Файл не изменён. Copyright 2017 The Roboto Flex Project Authors; лицензия SIL Open Font License 1.1 поставляется в public/fonts/RobotoFlex-OFL.txt.

@@ -1,0 +1,403 @@
+{
+  "checked_at": "2026-10-11",
+  "method": "Primary README/LICENSE, GitHub metadata and selected source files; third-party code not executed",
+  "repositories": [
+    {
+      "repo": "AkshayChordiya/Pose",
+      "url": "https://github.com/AkshayChordiya/Pose",
+      "commit_sha": "7f885107484e96365c1a1c4af31045429965fff1",
+      "download_ref_matches_commit": true,
+      "archived": false,
+      "license_api": {
+        "key": "apache-2.0",
+        "name": "Apache License 2.0",
+        "spdx_id": "Apache-2.0",
+        "url": "https://api.github.com/licenses/apache-2.0",
+        "node_id": "MDc6TGljZW5zZTI="
+      },
+      "read_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "0e3405471b3f61804ee7b1fb3860341ad92e771643b2d86557c64f124fd6da04"
+        },
+        {
+          "path": "README.md",
+          "sha256": "e959a3a18cd3e7e44cf1eab807a786142c08719e7ca1993145f8b52c31e1a389"
+        },
+        {
+          "path": "README.md",
+          "sha256": "e959a3a18cd3e7e44cf1eab807a786142c08719e7ca1993145f8b52c31e1a389"
+        }
+      ]
+    },
+    {
+      "repo": "ComposeFlow/ComposeFlow",
+      "url": "https://github.com/ComposeFlow/ComposeFlow",
+      "commit_sha": "3347013354285e6103a9a693aff5f77b74e37912",
+      "download_ref_matches_commit": true,
+      "archived": false,
+      "license_api": {
+        "key": "other",
+        "name": "Other",
+        "spdx_id": "NOASSERTION",
+        "url": null,
+        "node_id": "MDc6TGljZW5zZTA="
+      },
+      "read_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "039086b8391df2a31cbfa41234ac7bab6cab1af668d9543b7e773f713d5d9cd5"
+        },
+        {
+          "path": "NOTICE",
+          "sha256": "2a1154804783e0f8f58f076309891e44dab481a776b79b41e6b4704eb127448e"
+        },
+        {
+          "path": "README.md",
+          "sha256": "8a36b17076b10a87b1cd639e28eaf18fadcaf789698c1d7d13193a4aa43f3bb5"
+        },
+        {
+          "path": "core/model/src/commonMain/kotlin/io/composeflow/model/CodeGenerator.kt",
+          "sha256": "f9a63032b190e1e12efdea696a0777a98e68a091853a01f412e3d4625b8de595"
+        },
+        {
+          "path": "core/model/src/commonMain/kotlin/io/composeflow/model/parameter/TextTrait.kt",
+          "sha256": "8c7cf2ce55f3e4099b629ed89104562ee05fb1187efc9f87750ccaa4fda908b1"
+        }
+      ]
+    },
+    {
+      "repo": "JetBrains/compose-hot-reload",
+      "url": "https://github.com/JetBrains/compose-hot-reload",
+      "commit_sha": "2b236a0a88fdcdc5565e7c25f0368632351f3e89",
+      "download_ref_matches_commit": true,
+      "archived": false,
+      "license_api": {
+        "key": "apache-2.0",
+        "name": "Apache License 2.0",
+        "spdx_id": "Apache-2.0",
+        "url": "https://api.github.com/licenses/apache-2.0",
+        "node_id": "MDc6TGljZW5zZTI="
+      },
+      "read_files": [
+        {
+          "path": "LICENSE.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "README.md",
+          "sha256": "589d824e401dd93861f16476913b29d6b8c8e7bfde06c96adabdf37f014a1cc4"
+        }
+      ]
+    },
+    {
+      "repo": "Manavarya09/moldui",
+      "url": "https://github.com/Manavarya09/moldui",
+      "commit_sha": "18e00247c9a837b9140fe42df37bbd8cca3e945c",
+      "download_ref_matches_commit": true,
+      "archived": false,
+      "license_api": {
+        "key": "mit",
+        "name": "MIT License",
+        "spdx_id": "MIT",
+        "url": "https://api.github.com/licenses/mit",
+        "node_id": "MDc6TGljZW5zZTEz"
+      },
+      "read_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "b557e8082e1bba1bb794a70bdcac3a9d47ed65b4a5c586ba3c4437d26da395d0"
+        },
+        {
+          "path": "README.md",
+          "sha256": "0866c9ae87029b076cdf9e82a5f7044ac63ecd8d91f4635b9e50608048659c9c"
+        }
+      ]
+    },
+    {
+      "repo": "SandeepBaskaran/design-mode",
+      "url": "https://github.com/SandeepBaskaran/design-mode",
+      "commit_sha": "011ba9d3098d136ecc34488aa02d6c8e5a38877f",
+      "download_ref_matches_commit": true,
+      "archived": false,
+      "license_api": {
+        "key": "mit",
+        "name": "MIT License",
+        "spdx_id": "MIT",
+        "url": "https://api.github.com/licenses/mit",
+        "node_id": "MDc6TGljZW5zZTEz"
+      },
+      "read_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "cef2ce09998ceb642e89fbc137f44aafa5deed93bad039f259d76647661d85e2"
+        },
+        {
+          "path": "README.md",
+          "sha256": "30f3027867707273542f25a6720a3fe0fabb8a9f61fc88b44f006b6844861d45"
+        }
+      ]
+    },
+    {
+      "repo": "aidenybai/react-grab",
+      "url": "https://github.com/aidenybai/react-grab",
+      "commit_sha": "ea4bbec9e80f4802e8ae19ad18431edb9ddbb670",
+      "download_ref_matches_commit": true,
+      "archived": false,
+      "license_api": {
+        "key": "mit",
+        "name": "MIT License",
+        "spdx_id": "MIT",
+        "url": "https://api.github.com/licenses/mit",
+        "node_id": "MDc6TGljZW5zZTEz"
+      },
+      "read_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "3cb91aec78b7a54136b60a81055a3e1e5bac3c2d47d06dc866948129e4cd4f45"
+        },
+        {
+          "path": "README.md",
+          "sha256": "524cbe2c585b69976876e453b189961bfb4c68dad6406acb50fa157ad3f00c77"
+        }
+      ]
+    },
+    {
+      "repo": "airbnb/Showkase",
+      "url": "https://github.com/airbnb/Showkase",
+      "commit_sha": "b722d739a2f69389e7607202bb74e495077f9770",
+      "download_ref_matches_commit": true,
+      "archived": false,
+      "license_api": {
+        "key": "apache-2.0",
+        "name": "Apache License 2.0",
+        "spdx_id": "Apache-2.0",
+        "url": "https://api.github.com/licenses/apache-2.0",
+        "node_id": "MDc6TGljZW5zZTI="
+      },
+      "read_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "a16820112f163cd70a6e560be2918215c0a49d9c80d90808cb5d811ea9ab1489"
+        },
+        {
+          "path": "README.md",
+          "sha256": "d32bc467111418276f18c9a0170fae5d8698635bf4ecd2c502885e6a54d0e131"
+        }
+      ]
+    },
+    {
+      "repo": "cashapp/paparazzi",
+      "url": "https://github.com/cashapp/paparazzi",
+      "commit_sha": "365b466b0d099190acfba01582fcb7586579c7a6",
+      "download_ref_matches_commit": true,
+      "archived": false,
+      "license_api": {
+        "key": "apache-2.0",
+        "name": "Apache License 2.0",
+        "spdx_id": "Apache-2.0",
+        "url": "https://api.github.com/licenses/apache-2.0",
+        "node_id": "MDc6TGljZW5zZTI="
+      },
+      "read_files": [
+        {
+          "path": "LICENSE.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "README.md",
+          "sha256": "888a3462790536f5238cb85f62008f90bc1bdf6ca1cf7da61d4d145087e85833"
+        }
+      ]
+    },
+    {
+      "repo": "cinkhangin/composer",
+      "url": "https://github.com/cinkhangin/composer",
+      "commit_sha": "1b228e51129cffb1e0a671d03cd191b4b3a81a12",
+      "download_ref_matches_commit": true,
+      "archived": false,
+      "license_api": {
+        "key": "apache-2.0",
+        "name": "Apache License 2.0",
+        "spdx_id": "Apache-2.0",
+        "url": "https://api.github.com/licenses/apache-2.0",
+        "node_id": "MDc6TGljZW5zZTI="
+      },
+      "read_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "22caf218c9d32db929f4721a0c043959feccc64c3aa5926be125b57e3a1bfdb9"
+        },
+        {
+          "path": "README.md",
+          "sha256": "ceed835c5d41c8ad53545f3b4876ad213e74e7236ad91b0a7ecaca9a329ff175"
+        },
+        {
+          "path": "app/src/commonMain/kotlin/render/Renderer.kt",
+          "sha256": "3fc7e0c89a81d517ad4c567984e7cf2bb55e855e3958b93b2c8bcce834ca1784"
+        },
+        {
+          "path": "codeparse/src/commonMain/kotlin/composer/codeparse/DesignParser.kt",
+          "sha256": "a31cb18bc99cb0bca2449aacb85edbd96a6435b8ce37af872f47bea6e5d1b3b7"
+        },
+        {
+          "path": "codeparse/src/commonMain/kotlin/composer/codeparse/WriteBackPlanner.kt",
+          "sha256": "9e8c349cf378a0c81f47a3f303e1d21a73f0305fa4ff578c818426f98f57b09e"
+        },
+        {
+          "path": "codeparse/src/commonMain/kotlin/composer/codeparse/ModuleDesignParser.kt",
+          "sha256": "fac906aebf289b2af34b709b4cd70559c4f2cd2ddf33a379372daab1b2730282"
+        }
+      ]
+    },
+    {
+      "repo": "mikepenz/compose-buddy",
+      "url": "https://github.com/mikepenz/compose-buddy",
+      "commit_sha": "d0be3047104a8710f4a8c717fdfebd996f107682",
+      "download_ref_matches_commit": true,
+      "archived": true,
+      "license_api": {
+        "key": "apache-2.0",
+        "name": "Apache License 2.0",
+        "spdx_id": "Apache-2.0",
+        "url": "https://api.github.com/licenses/apache-2.0",
+        "node_id": "MDc6TGljZW5zZTI="
+      },
+      "read_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "443fc6d1d308f970b409cad14b8af1d20690544b795717b584282f148c650dae"
+        },
+        {
+          "path": "README-DEV.md",
+          "sha256": "de160717b5c7b8bcd8f8172e1e585a8a6ad466579e1a2d584f9a16dbf4cc56da"
+        },
+        {
+          "path": "README.md",
+          "sha256": "f44a1a45dc60d1115317c081b1cd99441cef70892f3897d1ca01fbd781279c6b"
+        },
+        {
+          "path": "compose-buddy-core/src/commonMain/kotlin/dev/mikepenz/composebuddy/core/model/HierarchyNode.kt",
+          "sha256": "30e55e1d9f6b77d42cf2de625ceb165cdef4b04d79419093acb9d9592f660a6f"
+        },
+        {
+          "path": "compose-buddy-device-client/src/jvmMain/kotlin/dev/mikepenz/composebuddy/client/model/BuddyCommand.kt",
+          "sha256": "98a7c6c4a4df4deb90028a6599ecc330c9c0367edea0fcf3637c44b2220a39e4"
+        },
+        {
+          "path": "compose-buddy-device-ksp/src/jvmMain/kotlin/dev/mikepenz/composebuddy/ksp/BuddyPreviewProcessor.kt",
+          "sha256": "e638e3d6f67945c32d12fd30004c93ea321db48928f9c692cbba7e715bef5ce1"
+        },
+        {
+          "path": "compose-buddy-device/src/main/kotlin/dev/mikepenz/composebuddy/device/BuddyPreviewActivity.kt",
+          "sha256": "d3dc3d2315d724f0b10a78b906fcd7086135ee2e0d402d30997193a1e5cbcd72"
+        },
+        {
+          "path": "compose-buddy-device/src/main/kotlin/dev/mikepenz/composebuddy/device/BuddyWebSocketServer.kt",
+          "sha256": "29992b9245da1b66d12c23ee6d3daed4f296d641673bd1fe5a53be63c26641d6"
+        },
+        {
+          "path": "compose-buddy-device/src/main/kotlin/dev/mikepenz/composebuddy/device/model/BuddyCommand.kt",
+          "sha256": "5810523f64a5562097c0c380c2985bea54a1c7bcb08da3614b476745a269ba13"
+        },
+        {
+          "path": "compose-buddy-device/src/main/kotlin/dev/mikepenz/composebuddy/device/capture/SlotTableCapture.kt",
+          "sha256": "bb9ba03e2112754f95ac441a38e4395d6feaddb9e560c72fc70a936f14a29f62"
+        },
+        {
+          "path": "compose-buddy-device/src/main/kotlin/dev/mikepenz/composebuddy/device/capture/SemanticsCapture.kt",
+          "sha256": "bad9b787b528b40bf24c46f20cfad0dbd0bab221c2392b9d31b300113e7b9a6d"
+        },
+        {
+          "path": "compose-buddy-gradle-plugin/src/main/kotlin/dev/mikepenz/composebuddy/gradle/device/BuddyDeviceConfigurator.kt",
+          "sha256": "9b263847152de12f4f2a68c332d898d85cb3fd26ff1feef1a20cf16498f8e697"
+        },
+        {
+          "path": "compose-buddy-renderer/src/jvmMain/kotlin/dev/mikepenz/composebuddy/renderer/PreviewDiscovery.kt",
+          "sha256": "95a8ff2701f37dae8e2121f70e3ed2c44b7f3b0d43ce386fa9b32f3231caefa9"
+        }
+      ]
+    },
+    {
+      "repo": "sergio-sastre/ComposablePreviewScanner",
+      "url": "https://github.com/sergio-sastre/ComposablePreviewScanner",
+      "commit_sha": "b93d513a568048d67358210c0de4ca98e9f5c897",
+      "download_ref_matches_commit": true,
+      "archived": false,
+      "license_api": {
+        "key": "mit",
+        "name": "MIT License",
+        "spdx_id": "MIT",
+        "url": "https://api.github.com/licenses/mit",
+        "node_id": "MDc6TGljZW5zZTEz"
+      },
+      "read_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "71b4dd85b341c29565ecb2d10b63f844cacb072c3e4c70c4b2bd06d7dfb0b1c6"
+        },
+        {
+          "path": "README.md",
+          "sha256": "12f3b53fddf6dedaf3f6c487392f6599be1080861f3051cf05f55e8798ddec3f"
+        },
+        {
+          "path": "README_DEPRECATED.md",
+          "sha256": "405e6e0b636129436855d779adbea85684b560f673252e0e7bebe48e129c0510"
+        }
+      ]
+    },
+    {
+      "repo": "takahirom/roborazzi",
+      "url": "https://github.com/takahirom/roborazzi",
+      "commit_sha": "1750474c8bb2ef2772a0233f15c921f30d809f4e",
+      "download_ref_matches_commit": true,
+      "archived": false,
+      "license_api": {
+        "key": "apache-2.0",
+        "name": "Apache License 2.0",
+        "spdx_id": "Apache-2.0",
+        "url": "https://api.github.com/licenses/apache-2.0",
+        "node_id": "MDc6TGljZW5zZTI="
+      },
+      "read_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "path": "README.md",
+          "sha256": "7ac768cbed74703fc81b99fb8494ed25a6051b71f65b47c8a39dfb3246f6cccd"
+        },
+        {
+          "path": "README.template.md",
+          "sha256": "113cfc8b7c4f9e4e4135d34c2158ca9350f137c4bcae58c11e13768f16c6b216"
+        }
+      ]
+    }
+  ],
+  "external_sources": [
+    "https://developer.android.com/develop/ui/compose/tooling/previews",
+    "https://developer.android.com/develop/ui/compose/tooling/debug",
+    "https://developer.android.com/develop/ui/compose/tooling/iterative-development",
+    "https://developer.android.com/studio/preview/compose-screenshot-testing",
+    "https://developer.android.com/training/testing/ui-tests/screenshot",
+    "https://hotswan.dev/",
+    "https://hotswan.dev/docs/preview",
+    "https://hotswan.dev/docs/how-it-works",
+    "https://hotswan.dev/docs/releases",
+    "https://hotswan.dev/license",
+    "https://www.apache.org/licenses/LICENSE-2.0.txt"
+  ],
+  "license_notes": {
+    "ComposeFlow/ComposeFlow": "LICENSE heading Apache 2.0, but normalized terms differ from canonical Apache license; GitHub NOASSERTION. Do not treat as verified standard Apache-2.0."
+  },
+  "implementation_notes": {
+    "mikepenz/compose-buddy": [
+      "BuddyPreviewActivity Tap dispatches ACTION_DOWN without ACTION_UP in examined handler",
+      "Rerender invokes captureAndBroadcast; it does not compile source"
+    ],
+    "ComposeFlow/ComposeFlow": [
+      "Normalized license differs from canonical Apache-2.0 in definitions and copyright grant"
+    ]
+  }
+}
