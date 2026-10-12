@@ -23,6 +23,17 @@ const marketplace = JSON.parse(await readFile(path.join(root, '.agents/plugins/m
 marketplace.plugins[0].source.path = './compose-visual-bridge';
 await mkdir(path.join(root, 'dist/.agents/plugins'), { recursive: true });
 await writeFile(path.join(root, 'dist/.agents/plugins/marketplace.json'), JSON.stringify(marketplace, null, 2) + '\n');
+const claudeManifest = path.join(dest, '.claude-plugin/plugin.json');
+const claudePlugin = JSON.parse(await readFile(claudeManifest, 'utf8'));
+claudePlugin.version = version;
+await writeFile(claudeManifest, JSON.stringify(claudePlugin, null, 2) + '\n');
+await mkdir(path.join(root, 'dist/.claude-plugin'), { recursive: true });
+await writeFile(path.join(root, 'dist/.claude-plugin/marketplace.json'), JSON.stringify({
+  name: 'compose-visual-bridge-local',
+  owner: { name: 'arttvad9r' },
+  description: 'Локальный каталог плагина Compose Visual Bridge',
+  plugins: [{ name: 'compose-visual-bridge', source: './compose-visual-bridge', description: claudePlugin.description, version, category: 'development' }],
+}, null, 2) + '\n');
 const archive = path.join(root, 'dist', `compose-visual-bridge-${version}.tgz`);
-execFileSync('tar', ['-czf', archive, '-C', path.join(root, 'dist'), '.agents', 'compose-visual-bridge']);
+execFileSync('tar', ['-czf', archive, '-C', path.join(root, 'dist'), '.agents', '.claude-plugin', 'compose-visual-bridge']);
 console.log(`Архив для установки: ${archive}`);

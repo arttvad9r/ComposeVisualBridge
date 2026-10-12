@@ -1,6 +1,6 @@
-# Плагин Compose Visual Bridge для Codex
+# Плагин Compose Visual Bridge для Codex и Claude Code
 
-Плагин содержит готовый редактор, локальный сервер и два skill: настройку и работу с экраном. Пользователю не нужны npm install, ручные ссылки skills, выбор PORT или BRIDGE_DATA. Для основного пути edit-compose/edit-scene нужен Node.js 22+ со встроенным WebSocket. Базовый JSON-редактор и setup работают на Node.js 20+. Проверено в Linux и Codex CLI 0.159.2; Claude, Windows и macOS пока не проверены.
+Плагин содержит готовый редактор, локальный сервер и два skill: настройку и работу с экраном. Пользователю не нужны npm install, ручные ссылки skills, выбор PORT или BRIDGE_DATA. Для основного пути edit-compose/edit-scene нужен Node.js 22+ со встроенным WebSocket. Базовый JSON-редактор и setup работают на Node.js 20+. Проверено в Linux, Codex CLI 0.159.2 и Claude Code 2.1.285; Windows и macOS пока не проверены.
 
 ## Установка
 
@@ -9,6 +9,17 @@
 Для передачи на другой компьютер используйте `dist/compose-visual-bridge-0.9.1.tgz`. Распакуйте архив в выбранный каталог: он содержит готовый плагин и локальный marketplace. Подключите этот каталог как источник через `codex plugin marketplace add /absolute/path/to/unpacked-directory`, затем установите плагин из каталога приложения. Ручное размещение skills не требуется. Команды подключения изменяют пользовательскую настройку Codex — в рамках разработки они автоматически не выполнялись.
 
 После установки выполните настройку плагина. Она проверяет Node.js и комплектность сборки, не создаёт макеты и не запускает npm. Установка через штатный CLI, обнаружение включённых skills и setup из установленного пакета проверены в отдельном профиле Codex; установка кнопкой в приложении и автоматический вызов настройки после установки пока не проверены.
+
+### Claude Code
+
+Пакет содержит манифест `.claude-plugin/plugin.json`, а сборка создаёт локальный marketplace `dist/.claude-plugin/marketplace.json`; оба входят в архив. Подключение из этого checkout или распакованного архива:
+
+```sh
+claude plugin marketplace add /absolute/path/to/dist
+claude plugin install compose-visual-bridge@compose-visual-bridge-local
+```
+
+Начните новую сессию Claude Code. Skills доступны как `/compose-visual-bridge:setup` и `/compose-visual-bridge:compose-visual-bridge`; Claude также вызывает их по описанию запроса. Автоматического onboarding, как в Codex, нет: после установки попросите «Проверь настройку Compose Visual Bridge». Удаление: `claude plugin uninstall compose-visual-bridge@compose-visual-bridge-local`; данные сессий остаются. Установка в изолированный профиль, setup → create → open → правка и передача в браузере → read → stop → повторный open проверены: [отчёт](verification/claude-plugin-2026-10-12.md).
 
 ## Обычная работа
 

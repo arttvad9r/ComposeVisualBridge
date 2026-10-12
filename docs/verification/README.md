@@ -8,6 +8,7 @@
 - [Полный SettingsScreen Mealio: runtime-сцена](mealio-full-scene-2026-10-11.md)
 - [Подключение Mealio и два цикла переноса](mealio-readiness-2026-10-11.md)
 - [Первый перенос в Mealio](mealio-settings-transfer-2026-10-10.md)
+- [Плагин в Claude Code — 0.9.1](claude-plugin-2026-10-12.md)
 - [Чистый checkout и проверка в Claude — 0.9.1](clean-checkout-claude-2026-10-12.md)
 - [Свободная компоновка, resize и первый перенос — R13–R16](free-layout-2026-10-10.md)
 - [Нативная проверка размеров и отступов](android-geometry-2026-10-11.md)

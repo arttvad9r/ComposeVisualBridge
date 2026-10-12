@@ -642,8 +642,9 @@ $('file').onchange = async () => {
 $('apply').onclick = async () => {
   const invalid = $('inspector').querySelector(':invalid');
   if (invalid) { invalid.reportValidity(); notice('Исправьте некорректное значение перед передачей агенту.', true); return; }
+  const repeated = applied && appliedDocument && JSON.stringify(appliedDocument) === JSON.stringify(doc());
   clearTimeout(draftTimer); $('apply').disabled = true;
-  try { const result = await queueSave('/api/apply'); await loadApplied(result); renderHandoff(); notice('Снимок сохранён.'); }
+  try { const result = await queueSave('/api/apply'); await loadApplied(result); renderHandoff(); notice(repeated ? 'Снимок сохранён повторно: черновик не менялся с прошлой передачи.' : 'Снимок сохранён.'); }
   catch (error) { notice(error.message, true); } finally { $('apply').disabled = false; }
 };
 $('restoreSession').onclick = async () => {

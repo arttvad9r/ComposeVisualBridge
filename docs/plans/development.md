@@ -28,7 +28,8 @@
 ## 4. Другие агенты — R10
 
 - [x] Проверить тот же макет и applied в Claude, включая localhost в его браузере: HTML-макет, Apply, API и файлы снимка ([отчёт](../verification/clean-checkout-claude-2026-10-12.md)).
-- [ ] Проверить в Claude native- и live-режимы и установку skill-пакета.
+- [x] Плагин Claude Code: манифест, marketplace, установка в отдельный профиль, цикл из установленной копии ([отчёт](../verification/claude-plugin-2026-10-12.md)).
+- [ ] Проверить в Claude native-, live- и compose-режимы (нужны JDK 21 и эмулятор) и headless-ход модели после авторизации CLI.
 
 ## Риски
 

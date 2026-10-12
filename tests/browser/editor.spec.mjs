@@ -846,3 +846,16 @@ test('Конфликт сохранения останавливает импо�
   const stream=await (await downloaded).createReadStream();let exported='';for await(const chunk of stream)exported+=chunk;
   expect(indexTree(JSON.parse(exported).root).get(text.id).node.props.text).toBe('Локальная правка при конфликте');
 });
+
+test('Повторная передача неизменённого черновика объясняется отдельным сообщением', async ({ page, bridge }) => {
+  await tree(page, 'title').click();
+  const field = page.getByLabel('Текст', { exact: true });
+  await field.fill('Повторная передача'); await field.blur(); await bridge.saved();
+  await page.locator('#apply').click();
+  await expect(page.locator('#notice')).toHaveText('Снимок сохранён.');
+  await page.locator('#apply').click();
+  await expect(page.locator('#notice')).toHaveText('Снимок сохранён повторно: черновик не менялся с прошлой передачи.');
+  await field.fill('Новая правка'); await field.blur(); await bridge.saved();
+  await page.locator('#apply').click();
+  await expect(page.locator('#notice')).toHaveText('Снимок сохранён.');
+});
