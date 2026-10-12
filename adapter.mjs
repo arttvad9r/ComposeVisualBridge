@@ -116,9 +116,15 @@ export async function generateAdapter(root,{module=':app'}={}){
   for(const c of candidates)c.type=TYPES[c.call]==='Button'&&!calls.some(o=>o.call==='Text'&&inside(o,c))?'Box':TYPES[c.call];
   const leaves=candidates.filter(c=>!CONTAINERS.has(c.type));
   let bound=candidates.filter(c=>!leaves.some(l=>inside(c,l)));
-  let root=null;
-  if(screens.has(name)){root=bound.filter(c=>!bound.some(o=>inside(c,o)))[0];if(!root){skipped.push({function:name,reason:'Нет корневого Compose-вызова'});plans.set(name,null);continue;}bound=bound.filter(c=>c===root||inside(c,root));}
-  plans.set(name,{owner,calls,bound,root});
+  let roots=[];
+  if(screens.has(name)){
+   // Every outermost container is a root: branches of `when`/`if` draw different screens, and the frame picks the rendered one.
+   // Lone leaves at the top (e.g. a dialog title) are not screens.
+   const outer=bound.filter(c=>!bound.some(o=>inside(c,o)));roots=outer.filter(c=>CONTAINERS.has(c.type));if(!roots.length)roots=outer.slice(0,1);
+   if(!roots.length){skipped.push({function:name,reason:'Нет корневого Compose-вызова'});plans.set(name,null);continue;}
+   bound=bound.filter(c=>roots.some(r=>c===r||inside(c,r)));
+  }
+  plans.set(name,{owner,calls,bound,roots});
   for(const c of calls){if(!owners.get(c.call)||c.call===name)continue;if(leaves.some(l=>inside(c,l)))underLeaf.add(c.call);else queue.push(c.call);}
  }
  // A function drawn inside a leaf (Button content and similar) cannot have its own bound children.
@@ -127,11 +133,11 @@ export async function generateAdapter(root,{module=':app'}={}){
  const adapter={format:'compose-visual-bridge-live-adapter-v1',name:path.basename(root),generated:true,screens:[...screens],calls:[]};
  for(const [name,plan] of plans){
   if(!plan||blocked.includes(name))continue;
-  const {owner:{file},calls,bound,root}=plan,code=sources[file].code;
+  const {owner:{file},calls,bound,roots}=plan,code=sources[file].code;
   for(const call of bound){
    const occurrence=calls.filter(c=>c.call===call.call).indexOf(call),type=call.type;
    adapter.calls.push({file,fileHash:hash(code),symbol:name,call:call.call,occurrence,key:`${name}-${call.call}-${occurrence}`,type,
-    props:type==='Text'?{fontSize:14,fontFamily:'Roboto'}:{},...(call===root?{root:true,name}:{instance:'dev.composevisualbridge.capture.bridgeSceneInstance'}),...colors(call,code,calls)});
+    props:type==='Text'?{fontSize:14,fontFamily:'Roboto'}:{},...(roots.includes(call)?{root:true,name}:{instance:'dev.composevisualbridge.capture.bridgeSceneInstance'}),...colors(call,code,calls)});
   }
  }
  return {adapter,skipped};

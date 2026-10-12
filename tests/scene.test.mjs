@@ -74,3 +74,24 @@ test('Text with an existing modifier gains a layout callback without duplicating
  const {workspace,adapter}=await fixture(t),original=source.replace('Text(text = value,','Text(text = value, modifier = Modifier.width(100.dp),');await writeFile(path.join(workspace,'Screen.kt'),original);adapter.calls.forEach(rule=>rule.fileHash=sha(original));
  const scene=await prepareScene(workspace,adapter);await instrumentScene(scene);const code=await readFile(path.join(workspace,'Screen.kt'),'utf8');assert.match(code,/bridgeSceneModifier\([^\n]+Modifier.width\(100.dp\)/);assert.match(code,/onTextLayout = dev.composevisualbridge.capture.bridgeSceneTextLayout/);assert.doesNotMatch(code,/,\s*,/);await restoreScene(workspace);assert.equal(await readFile(path.join(workspace,'Screen.kt'),'utf8'),original);
 });
+
+test('TextField: подпись, текст под полем и иконки берутся из кадра',async t=>{
+ const workspace=await mkdtemp(path.join(tmpdir(),'cvb-field-'));t.after(()=>rm(workspace,{recursive:true,force:true}));
+ const code='@Composable fun Screen() { Column() { OutlinedTextField(value = v, onValueChange = {}, label = { Text("Token") }, supportingText = { Text("Help") }) } }';
+ await writeFile(path.join(workspace,'Screen.kt'),code);await writeFile(path.join(workspace,'.bridge-native-workspace.json'),JSON.stringify({format:'compose-visual-bridge-workspace-v1',module:':app',sourceProject:workspace+'-original'}));
+ const rule=(call,type,extra={})=>({file:'Screen.kt',fileHash:sha(code),symbol:'Screen',call,type,occurrence:0,key:call,...extra});
+ const scene=await prepareScene(workspace,{format:'compose-visual-bridge-scene-adapter-v1',name:'Поле',calls:[rule('Column','Column',{root:true}),rule('OutlinedTextField','TextField')]});await instrumentScene(scene);await restoreScene(workspace);
+ const [root,field]=Object.keys(scene.bindings),image='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==';
+ const node=(id,parentId,properties,bounds,text)=>({id,parentId,text,bounds,properties});
+ const capture={image,densityDpi:160,sourceRevision:scene.instrumentedRevision,preview:'Screen',screenState:'s',digest:'native',nodes:[
+  node('r',null,{bridgeSourceKey:'/'+root+'/'},{left:0,top:0,right:360,bottom:640}),
+  node('f','r',{bridgeSourceKey:'/'+field+'/',editableText:'abc'},{left:0,top:0,right:300,bottom:88}),
+  node('l','f',{},{left:16,top:0,right:60,bottom:16},'Token'),
+  node('h','f',{},{left:16,top:68,right:200,bottom:88},'Help'),
+  node('i','f',{role:'Image'},{left:0,top:0,right:1,bottom:1})]};
+ const doc=await bindScene(scene,capture),p=doc.root.children[0].props;
+ assert.equal(p.text,'abc');assert.equal(p.label,'Token');assert.equal(p.supportingText,'Help');assert.equal(p.placeholder,undefined);assert.match(p.leadingIcon,/^data:image\/png;base64,/);
+ const {validate}=await import('../public/model.mjs');validate(doc);
+ assert.throws(()=>validate({...doc,root:{...doc.root,children:[{...doc.root.children[0],props:{...p,trailingIcon:'https://x/y.png'}}]}}),/trailingIcon/);
+ capture.nodes[1].properties.editableText='';const empty=(await bindScene(scene,capture)).root.children[0].props;assert.equal(empty.placeholder,'Token');assert.equal(empty.label,undefined);
+});

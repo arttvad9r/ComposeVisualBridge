@@ -114,3 +114,28 @@ fun FormPreview() { FormScreen(true, false) }
  const chip=by('FormScreen-FilterChip-0');assert.equal(chip.type,'Button');assert.match(chip.background,/^if \(dark\) .*secondaryContainer/);assert.match(chip.borderWidth,/^if \(dark\) 0f else 1f$/);assert.match(chip.shape,/FilterChipDefaults\.shape$/);
  const button=by('FormScreen-Button-0');assert.match(button.background,/^if \(ready\) .*primary else dev\.composevisualbridge\.capture\.bridgeDisabledContainer\(\)$/);assert.match(button.foreground,/bridgeDisabledContent\(\)$/);
 });
+test('Карта связей: ветки экрана дают несколько корней, вызов без скобок связывается',async t=>{
+ const {generateAdapter}=await import('../adapter.mjs');const {sceneCalls}=await import('../scene.mjs');
+ const temp=await mkdtemp(path.join(tmpdir(),'cvb-adapter-'));t.after(()=>rm(temp,{recursive:true,force:true}));await mkdir(temp+'/app/src/main/java/demo',{recursive:true});
+ const code=`import androidx.compose.material3.*
+@Composable
+fun DetailScreen(loading: Boolean, ask: Boolean) {
+    if (ask) AlertDialog(onDismissRequest = {}, title = { Text("Удалить?") }, confirmButton = {})
+    when {
+        loading -> Box(Modifier.fillMaxSize()) { Text("Загрузка") }
+        else -> Column {
+            Text("Рецепт")
+        }
+    }
+}
+@Preview
+@Composable
+fun DetailPreview() { DetailScreen(false, false) }
+`;
+ await writeFile(temp+'/app/src/main/java/demo/Screen.kt',code);
+ const {adapter}=await generateAdapter(temp);const by=key=>adapter.calls.find(c=>c.key===key);
+ assert.equal(by('DetailScreen-Box-0').root,true);assert.equal(by('DetailScreen-Column-0').root,true);
+ assert.equal(by('DetailScreen-Text-2').instance,'dev.composevisualbridge.capture.bridgeSceneInstance');
+ assert.ok(!by('DetailScreen-Text-0'),'Текст диалога не корень и не связывается');
+ const bare=sceneCalls(code,'DetailScreen').find(c=>c.call==='Column');assert.equal(bare.bare,true);assert.equal(code.slice(bare.close,bare.close+2),' {');
+});

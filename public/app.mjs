@@ -301,6 +301,22 @@ function renderNode(node, editable, parentType, frames, fontScale=1, parentAlign
     if(p.maxLines===1) { label.style.whiteSpace='pre'; label.style.maxHeight='1lh'; label.style.textOverflow=p.textOverflow || 'clip'; }
     else if(p.maxLines) { if(p.textOverflow==='ellipsis') { label.style.display='-webkit-box'; label.style.webkitBoxOrient='vertical'; label.style.webkitLineClamp=String(p.maxLines); } else {label.style.display='block'; label.style.maxHeight=`calc(${p.maxLines} * 1lh)`;} }
   }
+  // Nearest painted background, inherited through the DOM: an outlined field label cuts its border with it.
+  if (p.background) n.style.setProperty('--surface-under', p.background);
+  if (node.type === 'TextField' && (p.label || p.supportingText || p.leadingIcon || p.trailingIcon)) {
+    // Material layout inside the field bounds: label, 56dp box with icons, supporting text below.
+    const outlined = Boolean(p.borderWidth), box = el('div', 'field-box'), content = n.querySelector('.text-content');
+    for (const key of ['border', 'borderRadius', 'backgroundColor']) { box.style[key] = n.style[key]; n.style[key] = ''; }
+    n.style.border = 'none';
+    n.classList.add('field-composite'); n.classList.toggle('outlined', outlined);
+    const icon = src => { const image = el('img', 'field-icon'); image.src = src; image.alt = ''; return image; };
+    if (p.leadingIcon) box.append(icon(p.leadingIcon));
+    if (p.label) box.append(el('span', 'field-label', p.label));
+    if (content) box.append(content);
+    if (p.trailingIcon) box.append(icon(p.trailingIcon));
+    n.replaceChildren(box);
+    if (p.supportingText) n.append(el('div', 'field-support', p.supportingText));
+  }
   if (node.type === 'Switch') { n.classList.add('switch-node'); n.classList.toggle('checked', Boolean(p.checked)); }
   if (node.type === 'Spacer') { if (p.height === undefined) n.style.height = '16px'; }
   if (node.type === 'Image') {
@@ -541,7 +557,7 @@ function renderInspector() {
   remove.title = entry.parent ? 'Удалить выбранный элемент · Delete' : 'Корневой контейнер экрана нельзя удалить';
   const capability=composeCapability(node.type);if(capability.mode==='agent')intro.querySelector('.type-tag').append(capabilityHelp('Подключение элемента',capability.reason));
   remove.addEventListener('click', removeSelected); intro.append(remove); panel.append(intro);
-  if (['Text', 'Button', 'Icon', 'TextField', 'Image'].includes(node.type)) panel.append(section('Содержимое', [field('Текст', 'text', 'text', { full: true }), ...(node.type === 'Image' ? [field('URL изображения (https)', 'src', 'text', { full: true })] : [])]));
+  if (['Text', 'Button', 'Icon', 'TextField', 'Image'].includes(node.type)) panel.append(section('Содержимое', [field('Текст', 'text', 'text', { full: true }), ...(node.type === 'Image' ? [field('URL изображения (https)', 'src', 'text', { full: true })] : []), ...(node.type === 'TextField' ? [field('Подпись', 'label', 'text', { full: true }), field('Подсказка в пустом поле', 'placeholder', 'text', { full: true }), field('Текст под полем', 'supportingText', 'text', { full: true })] : [])]));
   if (node.type === 'Switch') panel.append(section('Состояние', [field('Включено', 'checked', 'checkbox')]));
   if (['Text', 'Button', 'Icon', 'TextField'].includes(node.type)) {
     const typography = section('Форматирование текста', [
@@ -598,7 +614,7 @@ function renderInspector() {
     (target && !target.disabled ? target : fallback)?.focus({ preventScroll: true });
   }
 }
-const propertyNames={text:'Текст',offsetX:'Смещение по горизонтали',offsetY:'Смещение по вертикали',width:'Ширина',height:'Высота',fontSize:'Размер шрифта',lineHeight:'Высота строки',letterSpacing:'Межбуквенный интервал',textAlign:'Выравнивание текста',color:'Цвет текста',background:'Фон',radius:'Скругление',padding:'Отступ внутри',paddingHorizontal:'Отступ по горизонтали',paddingVertical:'Отступ по вертикали',gap:'Между элементами',layout:'Компоновка',align:'Выравнивание',justify:'Распределение',add:'Добавление',remove:'Удаление',move:'Перемещение',borderWidth:'Обводка',borderColor:'Цвет обводки',fontWeight:'Толщина шрифта',fontFamily:'Шрифт',fontStyle:'Начертание',textDecoration:'Подчёркивание',maxLines:'Максимум строк',textOverflow:'Обрезка текста',weight:'Доля свободного места',opacity:'Непрозрачность',enabled:'Доступность',clipContent:'Обрезка содержимого',scrollable:'Прокрутка'};
+const propertyNames={text:'Текст',label:'Подпись поля',placeholder:'Подсказка в пустом поле',supportingText:'Текст под полем',leadingIcon:'Иконка слева',trailingIcon:'Иконка справа',offsetX:'Смещение по горизонтали',offsetY:'Смещение по вертикали',width:'Ширина',height:'Высота',fontSize:'Размер шрифта',lineHeight:'Высота строки',letterSpacing:'Межбуквенный интервал',textAlign:'Выравнивание текста',color:'Цвет текста',background:'Фон',radius:'Скругление',padding:'Отступ внутри',paddingHorizontal:'Отступ по горизонтали',paddingVertical:'Отступ по вертикали',gap:'Между элементами',layout:'Компоновка',align:'Выравнивание',justify:'Распределение',add:'Добавление',remove:'Удаление',move:'Перемещение',borderWidth:'Обводка',borderColor:'Цвет обводки',fontWeight:'Толщина шрифта',fontFamily:'Шрифт',fontStyle:'Начертание',textDecoration:'Подчёркивание',maxLines:'Максимум строк',textOverflow:'Обрезка текста',weight:'Доля свободного места',opacity:'Непрозрачность',enabled:'Доступность',clipContent:'Обрезка содержимого',scrollable:'Прокрутка'};
 function renderDiff() {
   renderHandoff();
   const result=diff(baseline,doc()), changes=result.intent.changes; $('changeCount').textContent = `Правок: ${changes.length}`; $('diffBadge').textContent = changes.length;

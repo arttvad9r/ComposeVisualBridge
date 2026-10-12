@@ -51,7 +51,8 @@ schemaVersion остаётся 1. Документы без modifierModel чит
 | fontStyle / textDecoration | normal, italic / none, underline |
 | color, background, borderColor | HEX #RRGGBB |
 | borderWidth / radius / weight / opacity | 0–10 / 0–200 / 0–100 / 0–1 |
-| text, placeholder, src | строки до 5000 символов; непустой src только https |
+| text, placeholder, label, supportingText, src | строки до 5000 символов; src — https или встроенный PNG |
+| leadingIcon, trailingIcon | TextField: встроенный PNG иконки, вырезанный из кадра (только для показа) |
 | checked, scrollable | boolean |
 
 Ограничения валидатора не равны точному поведению Compose. Цвет/шрифт наследуются в веб-превью; сохранение темы и реальных модификаторов — задача агента.

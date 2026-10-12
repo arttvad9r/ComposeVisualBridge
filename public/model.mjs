@@ -42,9 +42,11 @@ export function validate(doc) {
         if (!['start', 'center', 'end', 'space-between'].includes(value)) throw Error('justify: start, center, end, space-between');
       } else if (['color', 'background', 'borderColor'].includes(key)) {
         if (typeof value !== 'string' || !/^#[0-9a-f]{6}$/i.test(value)) throw Error(`${key}: нужен цвет #RRGGBB`);
-      } else if (['text', 'placeholder', 'src'].includes(key)) {
+      } else if (['text', 'placeholder', 'label', 'supportingText', 'src'].includes(key)) {
         if (typeof value !== 'string' || value.length > (key==='src'?2000000:5000)) throw Error(`${key}: строка превышает допустимый размер`);
         if (key === 'src' && value && !/^https:\/\//.test(value) && !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value)) throw Error('Image.src: только https URL или встроенный PNG');
+      } else if (['leadingIcon', 'trailingIcon'].includes(key)) {
+        if (typeof value !== 'string' || value.length > 2000000 || (value && !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value))) throw Error(`${key}: только встроенный PNG`);
       } else if (['checked', 'scrollable', 'enabled', 'clipContent'].includes(key)) {
         if (typeof value !== 'boolean') throw Error(`${key}: boolean`);
       } else throw Error(`Неизвестное свойство ${n.id}.${key}`);

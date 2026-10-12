@@ -34,6 +34,11 @@ export function sceneCalls(code, symbol) {
   if (t[start]?.v !== '{' || end === undefined) throw Error('Нужно блочное тело ' + symbol);
   const calls = [];
   for (let i = start + 1; i < end; i++) {
+    // `Column { ... }`: a capitalized call with only a trailing lambda gets `(modifier = ...)` inserted after its name.
+    if (/^[A-Z]\w*$/.test(t[i].v) && t[i + 1]?.v === '{' && !['.', 'fun', 'class', 'object', 'interface', ':', '@', '<', ','].includes(t[i - 1]?.v) && p.has(i + 1)) {
+      calls.push({ call: t[i].v, start: t[i].start, end: t[p.get(i + 1)].end, open: t[i].end, close: t[i].end, bare: true, trailingComma: false, line: t[i].line, args: [] });
+      continue;
+    }
     if (!/^[A-Za-z_]\w*$/.test(t[i].v) || t[i + 1]?.v !== '(') continue;
     const close = p.get(i + 1);
     if (close === undefined) continue;
@@ -162,7 +167,7 @@ export async function prepareScene(workspace, adapter) {
         : {
             start: call.close,
             end: call.close,
-            text: (call.args.length && !call.trailingComma ? ', ' : '') + 'modifier = ' + value,
+            text: call.bare ? '(modifier = ' + value + ')' : (call.args.length && !call.trailingComma ? ', ' : '') + 'modifier = ' + value,
           },
     );
     const labels =
@@ -446,9 +451,23 @@ export async function bindScene(scene, frame) {
     const text = actual.text || textNode.text;
     if (rule.type === 'TextField' && typeof actual.properties.editableText === 'string') {
       props.text = actual.properties.editableText;
-      // An empty field shows its label or placeholder: the first text drawn inside the field.
-      const hint = !props.text && frame.nodes.find(n => n.parentId === actual.id && typeof n.text === 'string' && n.text);
-      if (hint) props.placeholder = hint.text;
+      // Material fields: an outlined label sits 8dp above the 56dp box; supporting text is drawn below the box
+      // but still inside the field bounds.
+      const boxBottom = b.top + ((/^Outlined/.test(rule.call) ? 8 : 0) + 56) * density,
+        texts = frame.nodes.filter(n => n.parentId === actual.id && typeof n.text === 'string' && n.text),
+        support = texts.find(n => n.bounds.top >= boxBottom - 2 * density),
+        hint = texts.find(n => n !== support);
+      if (support) props.supportingText = support.text;
+      // An empty field shows its label or placeholder in place of the text; a filled one shows the label on top.
+      if (hint) props[props.text ? 'label' : 'placeholder'] = hint.text;
+      const descendant = n => {
+        for (let p = n.parentId, i = 0; p && i < 8; p = frame.nodes.find(x => x.id === p)?.parentId, i++) if (p === actual.id) return true;
+        return false;
+      };
+      for (const icon of frame.nodes.filter(n => n.properties.role === 'Image' && descendant(n))) {
+        const ib = icon.bounds, key = (ib.left + ib.right) / 2 > (b.left + b.right) / 2 ? 'trailingIcon' : 'leadingIcon';
+        if (ib.right > ib.left && ib.bottom > ib.top) props[key] ??= cropPng(Buffer.from(frame.image, 'base64'), ib);
+      }
       const n = Number(String(actual.properties.fontSize || '').match(/-?\d+(?:\.\d+)?/)?.[0]);
       if (Number.isFinite(n)) props.fontSize = n;
     }

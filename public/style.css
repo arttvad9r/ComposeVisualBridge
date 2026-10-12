@@ -39,7 +39,8 @@ body.lab{display:block;height:auto;overflow:auto;padding:20px;max-width:900px;ma
 #baselineFingerprint { font-size: 12px; overflow-wrap: anywhere; }
 @media (max-width: 640px) { .baseline-comparison { grid-template-columns: 1fr; } }
 
-.phone.content-only { border: 0; border-radius: 0; box-shadow: none; }
+/* Captured screens keep their exact size: no border, but a ring and shadow separate them from the canvas. */
+.phone.content-only { border: 0; border-radius: 0; box-shadow: 0 0 0 2px #263047, 0 18px 48px #26304738; }
 
 @font-face { font-family: Roboto; src: url('/fonts/Roboto.ttf') format('truetype'); font-weight: 100 900; font-style: normal; font-display: block; }
 @font-face { font-family: Roboto; src: url('/fonts/Roboto.ttf') format('truetype'); font-weight: 100 900; font-style: italic; font-display: block; }
@@ -75,3 +76,13 @@ body.lab{display:block;height:auto;overflow:auto;padding:20px;max-width:900px;ma
 .transfer-result{display:flex;gap:12px;align-items:center;padding:12px 24px;background:#f2f6ee;border-bottom:1px solid #d6d9d3}.transfer-result[hidden]{display:none}.transfer-result>div{flex:1}.transfer-result p{margin:5px 0 0;font-size:12px}.result-frames{display:grid;grid-template-columns:1fr 1fr;gap:16px}.result-frames figure{margin:0;min-width:0}.result-frames img{display:block;max-width:100%;max-height:60vh;margin:8px auto;object-fit:contain}#resultDialog{width:min(900px,95vw)}#resultChecks{white-space:pre-wrap;overflow-wrap:anywhere}@media(max-width:640px){.transfer-result{flex-wrap:wrap;padding:12px}.transfer-result>div{flex-basis:100%}}
 
 .project-screens{display:flex;align-items:center;gap:8px;padding:8px 16px;flex-wrap:wrap;border-bottom:1px solid var(--border)}.project-screens[hidden],#paletteSection[hidden]{display:none}.project-screens select{max-width:min(500px,70vw)}#projectPalette{display:flex;flex-wrap:wrap;gap:6px;padding:10px}#newScreenDialog label{display:block;margin:12px 0}#newScreenDialog input,#newScreenDialog textarea{display:block;width:100%;margin-top:6px}#newScreenDialog textarea{min-height:100px}
+.field-node.field-composite{flex-direction:column;align-items:stretch;padding:0;gap:0}
+.field-composite .field-box{position:relative;flex:1;min-height:0;display:flex;align-items:center;gap:12px;padding:0 12px 0 16px}
+.field-composite.outlined .field-box{margin-top:8px}
+.field-composite .field-box .text-content{flex:1;min-width:0}
+.field-composite:not(.outlined) .field-box{flex-wrap:wrap;align-content:center;row-gap:0}
+.field-composite:not(.outlined) .field-label{flex-basis:100%;order:-1}
+.field-label{font-size:12px;line-height:16px;opacity:.75;white-space:nowrap}
+.field-composite.outlined .field-label{position:absolute;left:12px;top:0;transform:translateY(-50%);padding:0 4px;background:var(--surface-under,#fff)}
+.field-icon{width:24px;height:24px;object-fit:contain;flex:none}
+.field-support{font-size:12px;line-height:16px;padding:4px 16px 0;opacity:.75;white-space:pre-wrap}
