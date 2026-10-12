@@ -1,6 +1,6 @@
 {
   "name": "compose-visual-bridge",
-  "version": "0.9.2",
+  "version": "0.10.0",
   "description": "Локальный визуальный редактор Android Compose и передача правок агенту",
   "author": { "name": "arttvad9r" },
   "keywords": ["android", "jetpack-compose", "visual-editor", "ui"]
