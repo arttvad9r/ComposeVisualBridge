@@ -4,7 +4,7 @@
 
 ## 1. Приёмка выпуска из чистого checkout — R1–R16
 
-- [ ] Запустить `npm ci`, `npm test`, `npm run test:browser`, `node --check` и `npm run package:plugin` из чистого checkout с временным BRIDGE_DATA.
+- [x] Запустить `npm ci`, `npm test`, `npm run test:browser`, `node --check` и `npm run package:plugin` из чистого checkout с временным BRIDGE_DATA. [Отчёт](../verification/clean-checkout-claude-2026-10-12.md).
 - [ ] Пройти сценарий: импорт → ручные правки → Undo/Redo → Apply → чтение снимка → разрешённый перенос → нативная проверка → новый baseline.
 - [ ] Пройти сценарий R18: неточная реконструкция → запрет переноса → исправление в отдельной сессии без потери правок → подтверждение → правка → снимок → перенос только намерения → Android-проверка.
 - [ ] Обновить README, спецификацию и протокол по фактическому поведению, указать ограничения и ручные проверки.
@@ -27,7 +27,8 @@
 
 ## 4. Другие агенты — R10
 
-- [ ] Проверить тот же макет и applied в Claude, включая localhost в его браузере. Отложено: лимиты Claude исчерпаны.
+- [x] Проверить тот же макет и applied в Claude, включая localhost в его браузере: HTML-макет, Apply, API и файлы снимка ([отчёт](../verification/clean-checkout-claude-2026-10-12.md)).
+- [ ] Проверить в Claude native- и live-режимы и установку skill-пакета.
 
 ## Риски
 
