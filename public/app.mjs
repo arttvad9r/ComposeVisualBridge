@@ -78,31 +78,51 @@ function captureFrames() {
   return frames;
 }
 function freeMode(value=doc()) {return value.layout?.mode!=='auto';}
-// A structural edit keeps every element where it was: only elements that changed parent, and the children of a
-// container whose order changed, lose their frames and are laid out again.
+// A structural edit keeps every element where it was. A new order inside a column or row swaps the slots of the
+// reordered run and keeps the gaps between them; an element moved to another container keeps its size and is placed again.
 function keptFrames(next) {
-  const before=indexTree(doc().root), after=indexTree(next.root), frames=doc().layout?.frames||captureFrames(), reordered=new Set();
+  const before=indexTree(doc().root), after=indexTree(next.root), frames=doc().layout?.frames||captureFrames();
+  const kept=Object.fromEntries(Object.entries(frames).filter(([id,frame])=>after.get(id)?.parent===frame.parent).map(([id,frame])=>[id,{...frame}]));
   for(const [id,{node}] of after) {
-    const order=list=>(list||[]).map(n=>n.id).filter(child=>before.get(child)?.parent===id&&after.get(child)?.parent===id);
-    if(before.has(id)&&JSON.stringify(order(node.children))!==JSON.stringify(order(before.get(id).node.children)))reordered.add(id);
+    if(!before.has(id)||node.type==='Box')continue;
+    const order=list=>(list||[]).map(n=>n.id).filter(child=>kept[child]&&before.get(child)?.parent===id);
+    const old=order(before.get(id).node.children), now=order(node.children);
+    let first=0,last=old.length-1;
+    while(first<=last&&old[first]===now[first])first++;
+    while(last>=first&&old[last]===now[last])last--;
+    if(first>last)continue;
+    const [position,size]=node.type==='Row'?['x','width']:['y','height'], run=old.slice(first,last+1);
+    const gaps=run.slice(1).map((child,i)=>kept[child][position]-kept[run[i]][position]-kept[run[i]][size]);
+    let at=kept[run[0]][position];
+    now.slice(first,last+1).forEach((child,i)=>{if(i)at+=gaps[i-1];kept[child][position]=Math.round(at*1000)/1000;at+=kept[child][size];});
   }
-  return Object.fromEntries(Object.entries(frames).filter(([id,frame])=>after.get(id)?.parent===frame.parent&&!reordered.has(frame.parent)));
+  movedSizes=Object.fromEntries(Object.entries(frames).filter(([id])=>after.has(id)&&!kept[id]).map(([id,frame])=>[id,{width:frame.width,height:frame.height}]));
+  return kept;
 }
 // New elements get a frame where the layout puts them; next to framed siblings they go after the last one
 // (below in a column, to the right in a row) instead of on top of them.
+let dropPoint=null, movedSizes={};
 function placeNewNodes() {
+  const point=dropPoint, sizes=movedSizes; dropPoint=null; movedSizes={};
   const frames=doc().layout?.frames; if(!frames)return;
   const measured=captureFrames(), map=indexTree(doc().root), added={};
   for(const [id,frame] of Object.entries(measured)) {
     if(frames[id])continue;
     const parent=frame.parent&&map.get(frame.parent).node, siblings=(parent?.children||[]).filter(child=>frames[child.id]);
     const end=(axis,size,offset)=>Math.max(...siblings.map(child=>frames[child.id][axis]+frames[child.id][size]+(child.props[offset]||0)))+(parent.props.gap||0);
-    const placed={...frame}, box=frame.parent&&(frames[frame.parent]||measured[frame.parent]), last=siblings.length&&frames[siblings.at(-1).id];
+    const placed={...frame,...sizes[id]}, box=frame.parent&&(frames[frame.parent]||measured[frame.parent]), last=siblings.length&&frames[siblings.at(-1).id];
     // Across the main axis follow the previous element: centred when it is centred, otherwise its start edge.
     const across=(axis,size)=>Math.abs(last[axis]+last[size]/2-box[size]/2)<2?(box[size]-placed[size])/2:last[axis];
-    if(last&&parent.type==='Row'){placed.x=end('x','width','offsetX');placed.y=across('y','height');}
+    const parentElement=point?.id===id&&[...$('after').querySelectorAll('[data-node-id]')].find(n=>n.dataset.nodeId===frame.parent);
+    if(parentElement){
+      const origin=parentElement.getBoundingClientRect(), style=getComputedStyle(parentElement), props=map.get(id).node.props;
+      placed.x=(point.x-origin.left)/scale-(parseFloat(style.borderLeftWidth)||0)+parentElement.scrollLeft-placed.width/2-(props.offsetX||0);
+      placed.y=(point.y-origin.top)/scale-(parseFloat(style.borderTopWidth)||0)+parentElement.scrollTop-placed.height/2-(props.offsetY||0);
+    }
+    else if(last&&parent.type==='Row'){placed.x=end('x','width','offsetX');placed.y=across('y','height');}
     else if(last&&parent.type!=='Box'){placed.y=end('y','height','offsetY');placed.x=across('x','width');}
     if(box){placed.x=Math.max(0,Math.min(placed.x,box.width-placed.width));placed.y=Math.max(0,Math.min(placed.y,box.height-placed.height));}
+    for(const key of ['x','y'])placed[key]=Math.round(placed[key]*1000)/1000;
     added[id]=placed;
   }
   if(!Object.keys(added).length)return;
@@ -173,6 +193,8 @@ function dropOn(event, targetElement, from) {
   try {
     const next = move(doc(), from, intent.parentId, intent.position);
     selected = from;
+    // Dropped on the layout: in free layout the element lands under the pointer, not at the end of its container.
+    dropPoint = targetElement.closest('#after') ? {id:from, x:event.clientX, y:event.clientY} : null;
     if (JSON.stringify(next) === JSON.stringify(doc())) notice('Порядок уже такой. Перетащите к другому краю элемента.');
     else { changed(next); notice(`Перемещено: ${intent.label}. Отменить — Ctrl+Z.`); }
   } catch (error) { notice(error.message, true); }
@@ -397,6 +419,16 @@ function renderNode(node, editable, parentType, frames, fontScale=1, parentAlign
     const frame=frames[node.id]; applyFrame(n,frame);
     for(const key of ['width','height']) {
       if(typeof p[key]==='number')n.style[key]=`${p[key]}px`;else if(p[key]==='auto')size(key,'auto');
+    }
+    // Edited text sizes to its content as Compose does: a longer label widens the frame (a centred one both ways)
+    // and wraps at the container edge instead of being cut by the captured width.
+    if(['Text','Button'].includes(node.type)&&typeof metrics?.text==='string'&&metrics.text!==p.text&&frame.parent!==null){
+      const parentFrame=frames[frame.parent], centered=parentFrame&&Math.abs(frame.x+frame.width/2-parentFrame.width/2)<2;
+      if(p.width===undefined||p.width==='auto'){
+        n.style.width='max-content';n.style.maxWidth=centered?'100%':`calc(100% - ${frame.x}px)`;
+        if(centered){n.style.left='50%';n.style.transform='translateX(-50%)';}
+      }
+      if(p.height===undefined||p.height==='auto'){n.style.height='auto';n.style.minHeight=`${frame.height}px`;}
     }
   }
   if (editable) {
