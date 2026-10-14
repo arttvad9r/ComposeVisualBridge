@@ -869,3 +869,19 @@ test('Повторная передача неизменённого черно�
   await page.locator('#apply').click();
   await expect(page.locator('#notice')).toHaveText('Снимок сохранён.');
 });
+
+test('B34: добавление в свободной компоновке не сдвигает элементы, новый встаёт после соседей', async ({ page, bridge }) => {
+  const box = await preview(page, 'title').boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
+  for (let i = 1; i <= 10; i++) await page.mouse.move(box.x + box.width / 2 + (i % 3), box.y + box.height / 2 + i * 3);
+  await page.mouse.up(); await bridge.saved();
+  expect(node((await bridge.state()).current, 'title').node.props.offsetX || 0).toBe(0);
+  const rects = () => page.evaluate(() => Object.fromEntries([...document.querySelectorAll('#after [data-node-id]')].map(n => { const r = n.getBoundingClientRect(); return [n.dataset.nodeId, [r.left, r.top, r.width, r.height].map(Math.round)]; })));
+  const before = await rects();
+  await tree(page, 'target').click(); await page.locator('#newType').selectOption('Switch'); await page.locator('#add').click(); await bridge.saved();
+  const after = await rects(), added = Object.keys(after).find(id => !before[id]);
+  for (const id of Object.keys(before)) expect(after[id], id).toEqual(before[id]);
+  const label = before.targetLabel;
+  expect(after[added][1]).toBeGreaterThanOrEqual(label[1] + label[3]);
+  expect((await bridge.state()).current.layout.frames[added]).toBeTruthy();
+});

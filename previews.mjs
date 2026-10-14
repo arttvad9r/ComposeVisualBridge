@@ -57,7 +57,10 @@ export async function capturePreviews({project,output,adapter,module=':app',sdk}
   try{code=await new Promise((resolve,reject)=>{const child=spawn(path.join(workspace,'gradlew'),[module+':testDebugUnitTest','--tests','dev.composevisualbridge.capture.BridgePreviewCapture','--console=plain'],{cwd:workspace,env:{...process.env,JAVA_HOME:tools.jdkHome},stdio:['ignore',handle.fd,handle.fd]});child.on('error',reject);child.on('close',resolve);});}
   finally{await handle.close();}
   if(await sourceRevision(workspace)!==revision)throw Error('Исходники изменились во время отрисовки');
-  if(code!==0&&!(await readdir(frames).catch(()=>[])).length)throw Error(`Отрисовка Preview не прошла (код ${code}). Лог: ${log}`);
+  if(code!==0&&!(await readdir(frames).catch(()=>[])).length){
+   if(/No tests found for given includes/.test(await readFile(log,'utf8').catch(()=>'')))throw Error(`Сканер не нашёл ни одного @Preview в пакете ${pkg}. Лог: ${log}`);
+   throw Error(`Отрисовка Preview не прошла (код ${code}). Лог: ${log}`);
+  }
  }finally{if(instrumented)await restoreScene(workspace);}
  const screens=[],skipped=[];
  for(const name of (await readdir(frames).catch(()=>[])).filter(n=>n.endsWith('.json')).sort()){

@@ -78,6 +78,36 @@ function captureFrames() {
   return frames;
 }
 function freeMode(value=doc()) {return value.layout?.mode!=='auto';}
+// A structural edit keeps every element where it was: only elements that changed parent, and the children of a
+// container whose order changed, lose their frames and are laid out again.
+function keptFrames(next) {
+  const before=indexTree(doc().root), after=indexTree(next.root), frames=doc().layout?.frames||captureFrames(), reordered=new Set();
+  for(const [id,{node}] of after) {
+    const order=list=>(list||[]).map(n=>n.id).filter(child=>before.get(child)?.parent===id&&after.get(child)?.parent===id);
+    if(before.has(id)&&JSON.stringify(order(node.children))!==JSON.stringify(order(before.get(id).node.children)))reordered.add(id);
+  }
+  return Object.fromEntries(Object.entries(frames).filter(([id,frame])=>after.get(id)?.parent===frame.parent&&!reordered.has(frame.parent)));
+}
+// New elements get a frame where the layout puts them; next to framed siblings they go after the last one
+// (below in a column, to the right in a row) instead of on top of them.
+function placeNewNodes() {
+  const frames=doc().layout?.frames; if(!frames)return;
+  const measured=captureFrames(), map=indexTree(doc().root), added={};
+  for(const [id,frame] of Object.entries(measured)) {
+    if(frames[id])continue;
+    const parent=frame.parent&&map.get(frame.parent).node, siblings=(parent?.children||[]).filter(child=>frames[child.id]);
+    const end=(axis,size,offset)=>Math.max(...siblings.map(child=>frames[child.id][axis]+frames[child.id][size]+(child.props[offset]||0)))+(parent.props.gap||0);
+    const placed={...frame}, box=frame.parent&&(frames[frame.parent]||measured[frame.parent]), last=siblings.length&&frames[siblings.at(-1).id];
+    // Across the main axis follow the previous element: centred when it is centred, otherwise its start edge.
+    const across=(axis,size)=>Math.abs(last[axis]+last[size]/2-box[size]/2)<2?(box[size]-placed[size])/2:last[axis];
+    if(last&&parent.type==='Row'){placed.x=end('x','width','offsetX');placed.y=across('y','height');}
+    else if(last&&parent.type!=='Box'){placed.y=end('y','height','offsetY');placed.x=across('x','width');}
+    if(box){placed.x=Math.max(0,Math.min(placed.x,box.width-placed.width));placed.y=Math.max(0,Math.min(placed.y,box.height-placed.height));}
+    added[id]=placed;
+  }
+  if(!Object.keys(added).length)return;
+  Object.assign(frames,added); validate(doc()); localSave(); renderPreview();
+}
 function freezePreview(frames) {
   for(const element of $('after').querySelectorAll('[data-node-id]')) applyFrame(element,frames[element.dataset.nodeId]);
 }
@@ -91,13 +121,14 @@ function changed(next, keepInspector = false, skipFreeze = false) {
     const structure=value=>[...indexTree(value.root)].map(([id,e])=>[id,e.parent,e.index]);
     const structural=JSON.stringify(structure(next))!==JSON.stringify(structure(doc()));
     if(freeMode(next)&&!skipFreeze) {
-      if(structural)next.layout={mode:'free'};
+      if(structural)next.layout={mode:'free',frames:keptFrames(next)};
       else if(!next.layout?.frames)next.layout={mode:'free',frames:captureFrames()};
     }
     if (!history.commit(next)) return;
     localSave();
     if (keepInspector) { renderTree(); renderPreview(); renderDiff(); $('undo').disabled = !history.past.length; $('redo').disabled = !history.future.length; }
     else render();
+    if(structural&&freeMode(next)&&!skipFreeze)placeNewNodes();
     clearTimeout(draftTimer);
     setSaveStatus('Есть несохранённые правки');
     draftTimer = setTimeout(() => queueSave().catch(error => { notice(error.message, true); setSaveStatus('Не сохранено'); }), 500);
@@ -160,7 +191,11 @@ const drag = createDrag({
     ghost = el('div', 'drag-ghost', id); document.body.append(ghost); document.body.classList.add('dragging'); },
   update(id, event) {
     if (visualDrag) {
-      const gesture=visualDrag; gesture.offsets=shiftedOffsets(gesture.props,(event.clientX-gesture.point.clientX)/gesture.scale,(event.clientY-gesture.point.clientY)/gesture.scale);
+      const gesture=visualDrag; let dx=(event.clientX-gesture.point.clientX)/gesture.scale, dy=(event.clientY-gesture.point.clientY)/gesture.scale;
+      // Shift keeps one axis; a clearly vertical or horizontal drag drops the hand's small sideways drift.
+      if(event.shiftKey){if(Math.abs(dx)<Math.abs(dy))dx=0;else dy=0;}
+      else{if(Math.abs(dx)<=8&&Math.abs(dy)>=3*Math.abs(dx))dx=0;if(Math.abs(dy)<=8&&Math.abs(dx)>=3*Math.abs(dy))dy=0;}
+      gesture.offsets=shiftedOffsets(gesture.props,dx,dy);
       gesture.element.style.translate=`${gesture.offsets.offsetX}px ${gesture.offsets.offsetY}px`; positionSelectionFrame();
       $('saveStatus').textContent=`Смещение: ${gesture.offsets.offsetX}, ${gesture.offsets.offsetY} dp`; return;
     }
@@ -264,8 +299,11 @@ function renderNode(node, editable, parentType, frames, fontScale=1, parentAlign
   const metrics=textGeometry[node.id];
   const nativeText=metrics&&metrics.fontSize>0&&['text','fontFamily','fontWeight','fontStyle'].every(key=>metrics[key]===undefined||metrics[key]===p[key]);
   if(nativeText&&metrics.fontDp>0)n.style.fontSize=`${metrics.fontDp*scaledSp(p.fontSize||metrics.fontSize,fontScale,fontScaleCurve)/scaledSp(metrics.fontSize,fontScale,fontScaleCurve)}px`;
-  const sameTextLayout=nativeText&&['fontSize','lineHeight','letterSpacing','maxLines','textOverflow'].every(key=>metrics[key]===p[key])&&(!frames?.[node.id]||Math.abs(frames[node.id].width-(metrics.layoutWidth??frames[node.id].width))<.01)&&(p.width===undefined||p.width===metrics.layoutWidth);
-  const nativeSingleLine=nativeText&&(metrics.lineCount===1||(metrics.lineCount==null&&p.maxLines===1));
+  const sameTextLayout=nativeText&&['fontSize','lineHeight','letterSpacing','maxLines','textOverflow'].every(key=>metrics[key]===p[key])&&(!frames?.[node.id]||Math.abs(frames[node.id].width-(metrics.layoutWidth??frames[node.id].width))<.02)&&(p.width===undefined||p.width===metrics.layoutWidth);
+  // Text edits keep the captured font: a single line stays as tall as Compose draws it, even when the
+  // theme's lineHeight is smaller than the font (Compose never clips glyphs to such a line).
+  const sameFont=metrics&&metrics.fontSize>0&&['fontFamily','fontWeight','fontStyle','lineHeight'].every(key=>metrics[key]===undefined||metrics[key]===p[key]);
+  const nativeSingleLine=sameFont&&(metrics.lineCount===1||(metrics.lineCount==null&&p.maxLines===1));
   // Compose trims leading above/below a single line; CSS line-height includes it.
   const lineHeight=nativeSingleLine?metrics.textHeight*fontScale*scaledSp(p.fontSize||metrics.fontSize,fontScale,fontScaleCurve)/scaledSp(metrics.fontSize,fontScale,fontScaleCurve):sameTextLayout&&metrics.lineAdvance?metrics.lineAdvance:p.lineHeight===undefined?undefined:(p.fontSize?scaledSp(p.fontSize,fontScale,fontScaleCurve)*p.lineHeight/p.fontSize:p.lineHeight*fontScale);
   if (lineHeight !== undefined) n.style.lineHeight = `${lineHeight}px`;
@@ -298,7 +336,8 @@ function renderNode(node, editable, parentType, frames, fontScale=1, parentAlign
   if (p.maxLines || p.textOverflow) {
     const label=n.querySelector('.text-content') || n;
     label.style.overflow='hidden'; label.style.maxWidth='100%'; label.style.minWidth='0';
-    if(p.maxLines===1) { label.style.whiteSpace='pre'; label.style.maxHeight='1lh'; label.style.textOverflow=p.textOverflow || 'clip'; }
+    // One line needs no vertical cut: ascenders and descenders may exceed a tight line height.
+    if(p.maxLines===1) { label.style.whiteSpace='pre'; label.style.overflowX='clip'; label.style.overflowY='visible'; label.style.textOverflow=p.textOverflow || 'clip'; }
     else if(p.maxLines) { if(p.textOverflow==='ellipsis') { label.style.display='-webkit-box'; label.style.webkitBoxOrient='vertical'; label.style.webkitLineClamp=String(p.maxLines); } else {label.style.display='block'; label.style.maxHeight=`calc(${p.maxLines} * 1lh)`;} }
   }
   // Nearest painted background, inherited through the DOM: an outlined field label cuts its border with it.

@@ -32,6 +32,8 @@ class BridgePreviewCapture(private val preview: ComposablePreview<AndroidPreview
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
         fun previews() = AndroidComposablePreviewScanner()
             .scanPackageTrees(System.getProperty("bridge.package") ?: error("bridge.package"))
+            // Android Studio generates private preview functions by default.
+            .includePrivatePreviews()
             .getPreviews()
     }
 
