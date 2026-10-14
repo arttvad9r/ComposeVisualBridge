@@ -519,6 +519,8 @@ export async function bindScene(scene, frame) {
         });
         textGeometry[id] = {
           ...props,
+          // maxLines=1 above only records the measured single line; the source does not limit the text.
+          ...(lineCount === 1 && rule.props?.maxLines === undefined ? { measuredMaxLines: true } : {}),
           lineCount,
           textHeight,
           ...(size?.length === 2 && size.every(Number.isFinite) ? { textBoxWidth: size[0] / density } : {}),

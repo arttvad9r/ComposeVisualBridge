@@ -355,7 +355,9 @@ function renderNode(node, editable, parentType, frames, fontScale=1, parentAlign
     if (p.textDecoration) n.style.textDecoration = p.textDecoration;
     if (node.type === 'TextField' || node.type === 'Text') { const label = el('span', 'text-content', n.textContent); n.replaceChildren(label); }
   }
-  if (p.maxLines || p.textOverflow) {
+  // A single line measured in the capture (no maxLines in code) wraps again once the text is edited.
+  const measuredLine=metrics?.measuredMaxLines&&metrics.text!==p.text&&p.maxLines===1&&p.textOverflow===metrics.textOverflow;
+  if ((p.maxLines || p.textOverflow) && !measuredLine) {
     const label=n.querySelector('.text-content') || n;
     label.style.overflow='hidden'; label.style.maxWidth='100%'; label.style.minWidth='0';
     // One line needs no vertical cut: ascenders and descenders may exceed a tight line height.
@@ -424,8 +426,13 @@ function renderNode(node, editable, parentType, frames, fontScale=1, parentAlign
     // and wraps at the container edge instead of being cut by the captured width.
     if(['Text','Button'].includes(node.type)&&typeof metrics?.text==='string'&&metrics.text!==p.text&&frame.parent!==null){
       const parentFrame=frames[frame.parent], centered=parentFrame&&Math.abs(frame.x+frame.width/2-parentFrame.width/2)<2;
+      // The container's padding is not captured: the widest siblings show where its content area ends.
+      const siblings=Object.entries(frames).filter(([id,f])=>id!==node.id&&f.parent===frame.parent).map(([,f])=>f);
+      const start=Math.min(frame.x,...siblings.map(f=>f.x)), end=Math.max(frame.x+frame.width,...siblings.map(f=>f.x+f.width));
+      const content=siblings.length&&end-start>frame.width+1?{start:Math.max(0,start),end:parentFrame?Math.min(parentFrame.width,end):end}:null;
       if(p.width===undefined||p.width==='auto'){
-        n.style.width='max-content';n.style.maxWidth=centered?'100%':`calc(100% - ${frame.x}px)`;
+        n.style.width='max-content';
+        n.style.maxWidth=content?`${centered?content.end-content.start:content.end-frame.x}px`:centered?'100%':`calc(100% - ${frame.x}px)`;
         if(centered){n.style.left='50%';n.style.transform='translateX(-50%)';}
       }
       if(p.height===undefined||p.height==='auto'){n.style.height='auto';n.style.minHeight=`${frame.height}px`;}

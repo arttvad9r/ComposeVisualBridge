@@ -8,15 +8,16 @@ import {fileURLToPath} from 'node:url';
 const repo=fileURLToPath(new URL('../../',import.meta.url));
 // A captured Preview screen in free layout: every element has a measured frame, the title keeps native metrics.
 const title={text:'BridgeLab',fontSize:32,lineHeight:24,fontWeight:700,fontFamily:'Roboto',maxLines:1};
+const register={text:'Регистрация',fontSize:14,color:'#6750A4',radius:24,maxLines:1,textOverflow:'clip'};
 const baseline={schemaVersion:1,name:'Вход',viewport:{width:400,height:520,presentation:'content'},
  root:{id:'root',type:'Column',props:{background:'#FFFFFF'},children:[
   {id:'title',type:'Text',props:title},
   {id:'login',type:'Button',props:{text:'Войти',fontSize:14,background:'#6750A4',color:'#FFFFFF',radius:24}},
-  {id:'register',type:'Button',props:{text:'Регистрация',fontSize:14,color:'#6750A4',radius:24}},
+  {id:'register',type:'Button',props:register},
   {id:'card',type:'Card',props:{background:'#EEEEEE'},children:[]}]},
  layout:{mode:'free',frames:{root:{parent:null,x:0,y:0,width:400,height:520},title:{parent:'root',x:125,y:20,width:150,height:37.333},
   login:{parent:'root',x:24,y:90,width:352,height:48},register:{parent:'root',x:145,y:150,width:110,height:48},card:{parent:'root',x:24,y:260,width:352,height:200}}},
- compose:{capture:{textGeometry:{title:{...title,lineCount:1,textHeight:37.333,layoutWidth:150}}}}};
+ compose:{capture:{textGeometry:{title:{...title,lineCount:1,textHeight:37.333,layoutWidth:150},register:{...register,lineCount:1,textHeight:20,measuredMaxLines:true}}}}};
 const test=base.extend({bridge:async({page},use)=>{
  const data=await mkdtemp(path.join(tmpdir(),'cvb-free-layout-'));let child,exited;const errors=[];page.on('pageerror',error=>errors.push(error.message));
  try{
@@ -66,4 +67,14 @@ test('Перенос в другой контейнер на макете ста
  const login=await box(page,'login'),cardBox=await box(page,'card');
  expect(login.y+login.height/2).toBeCloseTo(cardBox.y+cardBox.height/2,0);
  expect(await Promise.all(['title','register','card'].map(id=>box(page,id)))).toEqual(others);
+});
+
+test('Длинная подпись без maxLines в коде переносится в пределах отступов экрана',async({page,bridge})=>{
+ const long='Регистрация нового аккаунта для всей семьи и друзей';
+ await page.locator('#after [data-node-id="register"]').click();await page.locator('[data-property=text]').fill(long);await page.locator('[data-property=text]').press('Tab');await bridge.saved();
+ const button=await box(page,'register'),label=page.locator('#after [data-node-id="register"] .text-content');
+ expect(button.x).toBeGreaterThanOrEqual(23.5);expect(button.x+button.width).toBeLessThanOrEqual(376.5);
+ expect(await label.evaluate(n=>n.getBoundingClientRect().height)).toBeGreaterThan(30);
+ expect(await label.evaluate(n=>n.scrollWidth<=n.clientWidth+1&&n.scrollHeight<=n.clientHeight+1)).toBe(true);
+ expect((await bridge.state()).current.root.children.find(n=>n.id==='register').props.maxLines).toBe(1);
 });

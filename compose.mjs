@@ -1115,10 +1115,12 @@ export function bindCapture(document, frame) {
       if (Number.isFinite(weight)) p.fontWeight = weight;
       p.fontFamily ??= 'Roboto';
       if (textNode.properties.textLineCount === '1') {
+        const measuredMaxLines = p.maxLines === undefined;
         p.maxLines ??= 1;
         p.textOverflow ??= 'clip';
         if (entry.node.type === 'Text' && p.height === undefined) {
           textGeometry[id] = {
+            ...(measuredMaxLines ? { measuredMaxLines: true } : {}),
             maxLines: p.maxLines,
             textOverflow: p.textOverflow,
             lineCount: 1,
