@@ -88,7 +88,7 @@ const server = http.createServer(async (req, res) => {
           if (!applied) return reply(404, {error:'Снимок ещё не создан'});
           const directory = path.join(data, applied.directory);
           const changes = JSON.parse(await readFile(path.join(directory, 'changes.json'), 'utf8'));
-          if (applied.mode === 'review' && !changes.verification) return reply(422, {error:'Старый снимок не содержит проверки исходного макета. Создайте новый снимок после сверки.'});
+          if (applied.mode === 'review' && changes.verification?.confirmedBy !== 'user') return reply(422, {error:'Старый снимок не содержит подтверждённой сверки исходного макета с эталоном. Создайте новый снимок после сверки.'});
           return reply(200, {applied, baseline:JSON.parse(await readFile(path.join(directory, 'baseline.json'), 'utf8')), verification:changes.verification || null, reference:changes.reference ? {...changes.reference,url:`/api/snapshots/${applied.directory}/reference`} : null, intent:changes.intent || null, transfer:changes.transfer || null, document:JSON.parse(await readFile(path.join(directory, 'proposed.json'), 'utf8')), report:createReport(changes, applied)});
         }
         if (url.pathname === '/api/changes') return reply(200, { ...diff(state.baseline, state.current), draft: true, revision: state.revision, applied: state.applied });

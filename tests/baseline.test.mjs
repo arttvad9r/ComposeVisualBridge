@@ -58,12 +58,38 @@ test('baseline proof gates review, persists, and stays bound to an immutable sna
   assert.equal((await request('/api/apply',{revision:state.revision,document:changed,mode:'review'})).status,422);
   const testSnapshot=await request('/api/apply',{revision:state.revision,document:changed,mode:'test'});
   assert.equal(testSnapshot.status,200);
+  // Legacy automatic render proofs must not authorize either a new review or
+  // reading an already-created review as a trusted handoff. Keep files intact.
+  await stop();
+  const legacy=JSON.parse(await readFile(path.join(data,'session.json'),'utf8'));
+  legacy.applied=handoff.applied;
+  legacy.reference=JSON.parse(await readFile(path.join(data,handoff.applied.directory,'reference.json'),'utf8'));
+  legacy.verification={...handoff.verification,confirmedBy:'render'};
+  const changesPath=path.join(data,handoff.applied.directory,'changes.json');
+  const legacyChanges=JSON.parse(await readFile(changesPath,'utf8'));
+  legacyChanges.verification=legacy.verification;
+  const legacyText=JSON.stringify(legacyChanges);
+  await writeFile(changesPath,legacyText);
+  await writeFile(path.join(data,'session.json'),JSON.stringify(legacy));
+  url=await start();
+  state=(await request('/api/session')).value;
+  assert.equal(state.verification,null);
+  assert.equal((await request('/api/handoff')).status,422);
+  assert.equal((await request('/api/apply',{revision:state.revision,document:changed,mode:'review'})).status,422);
+  assert.equal(await readFile(changesPath,'utf8'),legacyText);
+  state=(await request('/api/baseline/confirm',{revision:state.revision,baselineFingerprint:state.baselineFingerprint,acknowledged:true})).value;
+  assert.equal(state.verification.confirmedBy,'user');
+  assert.equal((await request('/api/apply',{revision:state.revision,document:changed,mode:'review'})).status,200);
+  assert.equal((await request('/api/handoff')).value.verification.confirmedBy,'user');
 });
-test('JVM-rendered Preview baseline is verified by the render itself', async () => {
-  const { readReference, renderedVerification, isVerified, publicSession } = await import('../baseline.mjs');
+test('A rendered reference and legacy render proof do not verify a browser baseline', async () => {
+  const { readReference, fingerprint, isVerified, publicSession, confirmBaseline, BRIDGE_VERSION } = await import('../baseline.mjs');
   const state = { revision:0, baseline, current:baseline, applied:null, reference:readReference({mime:'image/png',image:png,label:'Превью'}) };
-  state.verification = renderedVerification(state);
-  assert.equal(isVerified(state), true); assert.equal(publicSession(state).verification.confirmedBy, 'render');
+  assert.equal(isVerified(state),false);
+  state.verification={bridgeVersion:BRIDGE_VERSION,baselineFingerprint:fingerprint(baseline),referenceDigest:state.reference.digest,confirmedBy:'render'};
+  assert.equal(isVerified(state),false);assert.equal(publicSession(state).verification,null);
+  state.verification=confirmBaseline(state,{baselineFingerprint:fingerprint(baseline),acknowledged:true});
+  assert.equal(isVerified(state), true); assert.equal(publicSession(state).verification.confirmedBy, 'user');
   assert.equal(isVerified({ ...state, baseline:{ ...baseline, name:'другой' } }), false);
   assert.equal(isVerified({ ...state, verification:{ ...state.verification, confirmedBy:'agent' } }), false);
 });

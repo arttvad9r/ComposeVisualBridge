@@ -1,9 +1,10 @@
 // Синтетическая проверка импорта Preview: fake Gradle и JDK, без сети и Android-приёмки.
 import test from 'node:test';import assert from 'node:assert/strict';import {mkdtemp,mkdir,writeFile,readFile,rm} from 'node:fs/promises';import {tmpdir} from 'node:os';import path from 'node:path';import {createHash} from 'node:crypto';import {execFileSync} from 'node:child_process';import {capturePreviews} from '../previews.mjs';
+import {sourceRevision} from '../scripts/native-project.mjs';
 const hash=value=>createHash('sha256').update(value).digest('hex');
 const image='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==';
 test('Preview-импорт: все Preview рисуются одной сборкой, несвязанные пропускаются с причиной, исходники не меняются',async t=>{
- const temp=await mkdtemp(path.join(tmpdir(),'cvb-previews-'));t.after(()=>rm(temp,{recursive:true,force:true}));
+ const temp=await mkdtemp(path.join(tmpdir(),'cvb-previews-'));let stopPreview;t.after(async()=>{try{stopPreview?.();}finally{await rm(temp,{recursive:true,force:true});}});
  const project=temp+'/project',jdk=temp+'/jdk';await mkdir(project+'/app/src/main/java/demo',{recursive:true});await mkdir(jdk+'/bin',{recursive:true});
  await writeFile(jdk+'/bin/java','#!/bin/sh\necho \'openjdk version "21.0.2"\' >&2\n',{mode:0o755});
  const source='@Composable fun ListScreen() { Column(Modifier.fillMaxSize()) { Text("Список") } }\n@Composable fun DetailScreen() { Box(Modifier.fillMaxSize()) { Text("Детали") } }';
@@ -30,8 +31,80 @@ for(const [name,frame] of Object.entries(${JSON.stringify(frames)}))fs.writeFile
  assert.deepEqual(result.skipped.map(s=>s.preview),['Без связей']);assert.match(result.skipped[0].reason,/нет элементов сцены/);
  assert.equal(await readFile(project+'/app/src/main/java/demo/Screen.kt','utf8'),source);
  assert.equal(await readFile(temp+'/copy/app/src/main/java/demo/Screen.kt','utf8'),source);
+ for(const screen of result.screens){assert.equal(screen.document.sourceRevision,await sourceRevision(result.workspace));assert.equal(screen.document.compose.workspaceRevision,await sourceRevision(result.workspace));}
+ await writeFile(result.workspace+'/.bridge-previews.json','{"audit":"updated metadata"}');
+ assert.equal(result.screens[0].document.sourceRevision,await sourceRevision(result.workspace));
+ await writeFile(result.workspace+'/app/src/main/java/demo/Screen.kt',source+'\n// Real source edit\n');
+ assert.notEqual(result.screens[0].document.sourceRevision,await sourceRevision(result.workspace));
  await assert.rejects(capturePreviews({project,output:temp+'/copy2',adapter:{format:'other'}}),/адаптер/);
  await assert.rejects(capturePreviews({project,output:temp+'/copy3'}),/Не найдено экранов/);
+ // Exercise the installed CLI path: obtaining a reference never confirms HTML.
+ const env={...process.env,BRIDGE_HOME:temp+'/home'},adapterPath=temp+'/adapter.json';
+ await writeFile(adapterPath,JSON.stringify(adapter));
+ const run=(...args)=>JSON.parse(execFileSync(process.execPath,['scripts/plugin.mjs',...args,'--project',project],{env,encoding:'utf8',timeout:20_000,stdio:['ignore','pipe','pipe']}));
+ const opened=run('edit-previews','--adapter',adapterPath,'--output',temp+'/cli-copy');
+ stopPreview=()=>run('stop','--session',opened.session);
+ let state=await fetch(opened.url+'/api/session').then(r=>r.json());
+ assert.ok(state.reference);assert.equal(state.verification,null);assert.match(opened.next,/Сравните/);
+ const apply=mode=>fetch(opened.url+'/api/apply',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({revision:state.revision,document:state.current,mode})});
+ assert.equal((await apply('review')).status,422);
+ state=await (await apply('test')).json();assert.equal(state.applied.mode,'test');
+ const response=await fetch(opened.url+'/api/baseline/confirm',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({revision:state.revision,baselineFingerprint:state.baselineFingerprint,acknowledged:true})});
+ assert.equal(response.status,200);state=await response.json();assert.equal(state.verification.confirmedBy,'user');
+ assert.equal((await apply('review')).status,200);
+ const handoff=await fetch(opened.url+'/api/handoff').then(r=>r.json());
+ // A successful frame followed by a failing Preview is still a failed render.
+ await writeFile(project+'/gradlew',(await readFile(project+'/gradlew','utf8'))+'\nprocess.exit(7);\n');
+ await assert.rejects(capturePreviews({project,output:temp+'/failed-copy',adapter}),/Отрисовка Preview не прошла \(код 7\).*bridge-previews.log/);
+ assert.throws(()=>run('edit-previews','--adapter',adapterPath,'--output',temp+'/failed-cli-copy'),/код 7/);
+ assert.deepEqual(await fetch(opened.url+'/api/handoff').then(r=>r.json()),handoff);
+ assert.equal(run('list').sessions.find(session=>session.latest).session,opened.session);
+ assert.equal(await readFile(temp+'/failed-copy/app/src/main/java/demo/Screen.kt','utf8'),source);
+ assert.equal(await readFile(project+'/app/src/main/java/demo/Screen.kt','utf8'),source);
+ const unsupportedSource='@Composable fun UnsafeScreen() { Column { Text("Title"); Canvas(Modifier.size(100.dp)) { drawCircle(Color.Red) }; AndroidView(factory = { View(it) }) } }\n@Preview @Composable fun UnsafePreview() { UnsafeScreen() }';
+ await writeFile(project+'/app/src/main/java/demo/Screen.kt',unsupportedSource);
+ await assert.rejects(capturePreviews({project,output:temp+'/unsupported-copy'}),/Неполный импорт Preview: .*Screen.kt:1.*UnsafeScreen: Canvas.*UnsafeScreen: AndroidView/);
+ assert.equal(await readFile(project+'/app/src/main/java/demo/Screen.kt','utf8'),unsupportedSource);
+});
+
+test('Unknown UI calls are diagnosed inside branches and slots without flagging values or callbacks',async t=>{
+ const {generateAdapter}=await import('../adapter.mjs');
+ const temp=await mkdtemp(path.join(tmpdir(),'cvb-adapter-'));t.after(()=>rm(temp,{recursive:true,force:true}));
+ await mkdir(temp+'/app/src/main/java/demo',{recursive:true});
+ await writeFile(temp+'/app/src/main/java/demo/Screen.kt',`@Composable
+fun Screen(visible: Boolean) {
+ val state = remember { FormState() }
+ val color = Color(0xff000000)
+ val drawn = UnknownAssignedPanel()
+ val content: @Composable () -> Unit = { Text("Slot") }
+ LaunchedEffect(Unit) { SaveRequest() }
+ Column {
+  val fallback = state.value ?: FormState()
+  Text(title())
+  Text("Title", color = Color(0xff000000))
+  Button(onClick = { SaveRequest() }) { Text("Save") }
+  Canvas(Modifier.size(100.dp)) { drawCircle(Color.Red) }
+  AndroidView(factory = { View(it) })
+  if (visible) { AsyncImage(model = "example") }
+  Box(content = { UnknownPanel() })
+ }
+}
+@Preview @Composable fun ScreenPreview() { Screen(true) }
+data class FormState(val value: FormState? = null)
+@Composable private fun title(): String = "Title"`);
+ const generated=await generateAdapter(temp);
+ assert.deepEqual(generated.unsupported.map(item=>item.call),['UnknownAssignedPanel','Canvas','AndroidView','AsyncImage','UnknownPanel']);
+ for(const item of generated.unsupported){assert.equal(item.file,'app/src/main/java/demo/Screen.kt');assert.equal(item.symbol,'Screen');assert.ok(item.line>0);assert.match(item.reason,/не связан/);}
+ assert.ok(generated.adapter.calls.some(item=>item.call==='Text'));
+});
+
+test('An expression-body component is explicitly unsupported instead of silently losing its content',async t=>{
+ const {generateAdapter}=await import('../adapter.mjs');
+ const temp=await mkdtemp(path.join(tmpdir(),'cvb-adapter-'));t.after(()=>rm(temp,{recursive:true,force:true}));
+ await mkdir(temp+'/app/src/main/java/demo',{recursive:true});
+ await writeFile(temp+'/app/src/main/java/demo/Screen.kt','@Composable fun Header() = Text("Title")\n@Composable fun Screen() { Column { Header() } }\n@Preview @Composable fun ScreenPreview() { Screen() }');
+ const generated=await generateAdapter(temp);
+ assert.equal(generated.unsupported.length,1);assert.equal(generated.unsupported[0].symbol,'Header');assert.match(generated.unsupported[0].reason,/блочное тело/);
 });
 test('Карта связей строится из исходников: экраны из @Preview, листья без вложенных связей, цвета Material 3',async t=>{
  const {generateAdapter}=await import('../adapter.mjs');

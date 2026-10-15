@@ -7,7 +7,7 @@ import { homedir } from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { isVerified, BRIDGE_VERSION, readReference, renderedVerification } from '../baseline.mjs';
+import { isVerified, BRIDGE_VERSION, readReference } from '../baseline.mjs';
 import {bindWorkspaceCapture,planCompose,importCompose,instrumentWorkspace,restoreWorkspace} from '../compose.mjs';
 const exec = promisify(execFile);
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -141,10 +141,10 @@ async function main() {
     const captured=await capturePreviews({project,output:options['--output']||path.join(projectData,'previews-'+randomUUID()),adapter:options['--adapter']?await load(path.resolve(options['--adapter'])):null,module:options['--module'],sdk:options['--sdk']});
     // One session per screen; the editor's screen list switches between them.
     const sessions=[];
-    try{for(const {document,frame} of captured.screens){const container=await mkdtemp(path.join(projectData,'screen-')),data=path.join(container,'data');sessions.push(data);await mkdir(data);const state={revision:0,baseline:document,current:document,applied:null,reference:readReference({mime:'image/png',image:frame.image,label:document.name})};await atomic(path.join(data,'session.json'),{...state,verification:renderedVerification(state)});}}
+    try{for(const {document,frame} of captured.screens){const container=await mkdtemp(path.join(projectData,'screen-')),data=path.join(container,'data');sessions.push(data);await mkdir(data);const state={revision:0,baseline:document,current:document,applied:null,reference:readReference({mime:'image/png',image:frame.image,label:document.name}),verification:null};await atomic(path.join(data,'session.json'),state);}}
     catch(error){for(const data of sessions)await rm(path.dirname(data),{recursive:true,force:true});throw error;}
     const first=path.basename(path.dirname(sessions[0])),server=await launch(sessions[0]);await locked(projectData,()=>atomic(path.join(projectData,'latest.json'),{session:first}));
-    console.log(json({project,session:first,workspace:captured.workspace,...server,mode:'compose',entry:'preview',screens:captured.screens.map((s,i)=>({name:s.document.name,session:path.basename(path.dirname(sessions[i]))})),skipped:captured.skipped,unbound:captured.unbound,next:'Экраны открыты в списке «Экран и состояние».'}));return;
+    console.log(json({project,session:first,workspace:captured.workspace,...server,mode:'compose',entry:'preview',screens:captured.screens.map((s,i)=>({name:s.document.name,session:path.basename(path.dirname(sessions[i]))})),skipped:captured.skipped,unbound:captured.unbound,next:'Экраны открыты в списке «Экран и состояние». Сравните исходный макет с кадром Preview и подтвердите совпадение через «Дополнительно → Исходник не проверен»; до этого доступна только тестовая передача.'}));return;
   }
   if(command==='edit-live'){
     const {captureLive}=await import('../live.mjs');

@@ -9,7 +9,7 @@ const exec=promisify(execFile);
 export const TOOLCHAIN={buddy:'0.3.0',ksp:'2.3.6',kotlin:'2.3.20',jdk:21};
 const marker='.bridge-native-workspace.json';
 const ignored=new Set(['.git','.gradle','.kotlin','build','node_modules','keystore']);
-const internal=new Set([marker,'.bridge-compose-import.json','.bridge-scene-import.json','.bridge-scene-frame.json','bridge-native-build.log','bridge-native-build.json','local.properties','.bridge-live.json']);
+const internal=new Set([marker,'.bridge-compose-import.json','.bridge-scene-import.json','.bridge-scene-frame.json','.bridge-previews.json','bridge-native-build.log','bridge-native-build.json','local.properties','.bridge-live.json']);
 const secret=name=>name==='keystore.properties'||/^\.env(?:\.|$)/.test(name)||/\.(?:jks|keystore|pem|p12)$/.test(name);
 
 export async function toolchain() {

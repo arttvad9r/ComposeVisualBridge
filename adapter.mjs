@@ -25,11 +25,37 @@ const DEFAULTS={__proto__:null,Surface:['surface'],Scaffold:['background'],Card:
  Button:['primary','onPrimary'],FilledTonalButton:['secondaryContainer','onSecondaryContainer'],ElevatedButton:['surfaceContainerLow','primary'],
  OutlinedButton:[null,'primary'],TextButton:[null,'primary'],FloatingActionButton:['primaryContainer','onPrimaryContainer'],ExtendedFloatingActionButton:['primaryContainer','onPrimaryContainer']};
 const MODIFIERS=new Set(['private','internal','public','protected','inline','override','open','suspend']);
+const VALUE_BUILDERS=new Set(['remember','rememberSaveable','rememberUpdatedState','derivedStateOf']);
+const EFFECT_CALLS=new Set(['LaunchedEffect','DisposableEffect','SideEffect','BackHandler','PredictiveBackHandler']);
+const NON_VISUAL_CALLS=new Set([...EFFECT_CALLS,'CompositionLocalProvider','MaterialTheme','ProvideTextStyle']);
+const VALUE_CONSTRUCTORS=new Set(['Color','Modifier','TextStyle','SpanStyle','ParagraphStyle','PaddingValues','BorderStroke','RoundedCornerShape','CornerSize','Size','Offset','DpSize','IntSize','IntOffset','FontFamily','FontWeight','SolidColor','Shadow','KeyboardOptions','KeyboardActions','Pair','Triple']);
+
+// This is a conservative source scanner, not Kotlin type resolution. Unknown
+// calls in UI content must be diagnosed instead of silently losing their pixels.
+// Values and event callbacks are not UI content (Color(...), onClick = { ... }).
+function unknownContentCall(call,calls,owners,code,valueRanges,valueNames){
+ if(!/^[A-Z]/.test(call.call)||TYPES[call.call]||owners.get(call.call)||NON_VISUAL_CALLS.has(call.call)||VALUE_CONSTRUCTORS.has(call.call)||valueNames.has(call.call))return false;
+ const before=code.slice(0,call.start).trimEnd();
+ if(before.endsWith('@'))return false;
+ if(valueRanges.some(range=>range.start<call.start&&call.end<=range.end))return false;
+ for(const parent of calls){
+  if(parent===call||parent.start>=call.start||parent.end<call.end)continue;
+  for(const arg of parent.args){
+   if(arg.valueStart<=call.start&&call.end<=arg.end&&(!arg.value.trim().startsWith('{')||/^(?:on[A-Z]|factory$|update$)/.test(arg.name||'')))return false;
+  }
+  if(VALUE_BUILDERS.has(parent.call)||EFFECT_CALLS.has(parent.call))return false;
+ }
+ return true;
+}
 
 function matching(t){
  const map=new Map(),back=new Map(),stack=[];
  for(let i=0;i<t.length;i++){if('({['.includes(t[i].v)&&!t[i].string)stack.push(i);else if(')}]'.includes(t[i].v)&&!t[i].string){const s=stack.pop();if(s!==undefined){map.set(s,i);back.set(i,s);}}}
  return {map,back};
+}
+function bareValueRanges(code){
+ const tokens=kotlinTokens(code),{map}=matching(tokens);
+ return tokens.flatMap((token,i)=>token.v==='{'&&VALUE_BUILDERS.has(tokens[i-1]?.v)&&map.has(i)?[{start:token.start,end:tokens[map.get(i)].end}]:[]);
 }
 /** Top-level-ish functions of a file with their annotations and body token range. */
 export function kotlinFunctions(code){
@@ -52,7 +78,8 @@ export function kotlinFunctions(code){
   if(t[body]?.v==='{')end=map.get(body);
   else if(t[body]?.v==='='){end=body;while(end+1<t.length&&t[end+1].v!=='fun'&&t[end+1].v!=='@')end=end+1;}
   else continue;
-  result.push({name:t[n+1].v,receiver,annotations,composable:annotations.includes('Composable'),preview:annotations.some(a=>/Preview/.test(a)),blockBody:t[body].v==='{',
+  const returnType=t[close+1]?.v===':'?t.slice(close+2,body).map(token=>token.v).join(''):null;
+  result.push({name:t[n+1].v,receiver,annotations,composable:annotations.includes('Composable'),returnsValue:!!returnType&&returnType!=='Unit',preview:annotations.some(a=>/Preview/.test(a)),blockBody:t[body].v==='{',
    calls:t.slice(body,end+1).flatMap((v,k,a)=>/^[A-Za-z_]\w*$/.test(v.v)&&['(','{'].includes(a[k+1]?.v)&&a[k-1]?.v!=='.'&&a[k-1]?.v!=='fun'?[v.v]:[])});
  }
  return result;
@@ -97,20 +124,26 @@ function colors(call,source,calls){
 export async function generateAdapter(root,{module=':app'}={}){
  const moduleDir=module.slice(1).split(':').join('/');
  const files=[...await kotlinFiles(root,moduleDir+'/src/main'),...await kotlinFiles(root,moduleDir+'/src/debug')];
- const sources={},owners=new Map();
+ const sources={},owners=new Map(),valueNames=new Set();
  for(const file of files){
   const code=await readFile(path.join(root,file),'utf8');let functions;try{functions=kotlinFunctions(code);}catch{continue;}
-  sources[file]={code,functions};
+  sources[file]={code,functions,valueRanges:bareValueRanges(code)};
+  const tokens=kotlinTokens(code);
+  for(let i=0;i<tokens.length;i++)if(['class','object','interface'].includes(tokens[i].v)&&/^[A-Za-z_]\w*$/.test(tokens[i+1]?.v||''))valueNames.add(tokens[i+1].v);
+  for(const fn of functions)if(!fn.composable||fn.returnsValue)valueNames.add(fn.name);
   // LazyListScope-style builders emit composable items, so their calls are bound too.
-  for(const fn of functions)if(fn.composable||/Scope$/.test(fn.receiver||''))owners.set(fn.name,owners.has(fn.name)?null:{file,fn});
+  for(const fn of functions)if((fn.composable&&!fn.returnsValue)||/Scope$/.test(fn.receiver||''))owners.set(fn.name,owners.has(fn.name)?null:{file,fn});
  }
- const skipped=[],screens=new Set();
+ const skipped=[],unsupported=[],screens=new Set();
  for(const {functions} of Object.values(sources))for(const fn of functions.filter(f=>f.preview))
   for(const name of fn.calls)if(owners.get(name)&&!owners.get(name).fn.preview&&!/Theme$/.test(name))screens.add(name);
  const plans=new Map(),queue=[...screens],underLeaf=new Set();
  while(queue.length){
   const name=queue.shift();if(plans.has(name))continue;const owner=owners.get(name);if(!owner){continue;}
-  let calls;try{calls=sceneCalls(sources[owner.file].code,name);}catch(error){if(!/блочное тело/.test(error.message))skipped.push({function:name,reason:error.message});plans.set(name,null);continue;}
+  let calls;try{calls=sceneCalls(sources[owner.file].code,name);}catch(error){skipped.push({function:name,reason:error.message});unsupported.push({file:owner.file,symbol:name,reason:error.message});plans.set(name,null);continue;}
+  for(const call of calls)if(unknownContentCall(call,calls,owners,sources[owner.file].code,sources[owner.file].valueRanges,valueNames)){
+   unsupported.push({file:owner.file,symbol:name,call:call.call,line:call.line,reason:'Вызов в содержимом экрана не связан с редактором'});
+  }
   const candidates=calls.filter(c=>TYPES[c.call]),inside=(a,b)=>b.start<=a.start&&a.end<=b.end&&a!==b;
   // The editor's Button needs a label; an icon-only button becomes a container around its icon.
   for(const c of candidates)c.type=TYPES[c.call]==='Button'&&!calls.some(o=>o.call==='Text'&&inside(o,c))?'Box':TYPES[c.call];
@@ -140,5 +173,5 @@ export async function generateAdapter(root,{module=':app'}={}){
     props:type==='Text'?{fontSize:14,fontFamily:'Roboto'}:{},...(roots.includes(call)?{root:true,name}:{instance:'dev.composevisualbridge.capture.bridgeSceneInstance'}),...colors(call,code,calls)});
   }
  }
- return {adapter,skipped};
+ return {adapter,skipped,unsupported};
 }

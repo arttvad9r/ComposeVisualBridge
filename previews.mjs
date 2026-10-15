@@ -36,6 +36,7 @@ export async function capturePreviews({project,output,adapter,module=':app',sdk}
  const {workspace}=await prepare({project,output,module,sdk,liveOnly:true});
  // Without an explicit adapter the bindings are derived from the copy's Kotlin sources.
  const generated=adapter?null:await generateAdapter(workspace,{module});
+ if(generated?.unsupported.length)throw Error('Неполный импорт Preview: '+generated.unsupported.map(item=>`${item.file}:${item.line || '?'} — ${item.symbol}: ${item.call || item.symbol} (${item.reason})`).join('; ')+'. Подготовьте отдельную проверяемую сцену или явный адаптер, затем сверьте макет с кадром.');
  if(generated&&!generated.adapter.calls.length)throw Error('Не найдено экранов: нужны @Preview, вызывающие Composable-экраны проекта'+(generated.skipped.length?' ('+generated.skipped.map(s=>s.function+' — '+s.reason).join('; ')+')':''));
  // The host is only needed for the live overlay; previews call screens directly.
  const sceneAdapter={...structuredClone(adapter||generated.adapter),format:'compose-visual-bridge-live-adapter-v1'};
@@ -57,7 +58,7 @@ export async function capturePreviews({project,output,adapter,module=':app',sdk}
   try{code=await new Promise((resolve,reject)=>{const child=spawn(path.join(workspace,'gradlew'),[module+':testDebugUnitTest','--tests','dev.composevisualbridge.capture.BridgePreviewCapture','--console=plain'],{cwd:workspace,env:{...process.env,JAVA_HOME:tools.jdkHome},stdio:['ignore',handle.fd,handle.fd]});child.on('error',reject);child.on('close',resolve);});}
   finally{await handle.close();}
   if(await sourceRevision(workspace)!==revision)throw Error('Исходники изменились во время отрисовки');
-  if(code!==0&&!(await readdir(frames).catch(()=>[])).length){
+  if(code!==0){
    if(/No tests found for given includes/.test(await readFile(log,'utf8').catch(()=>'')))throw Error(`Сканер не нашёл ни одного @Preview в пакете ${pkg}. Лог: ${log}`);
    throw Error(`Отрисовка Preview не прошла (код ${code}). Лог: ${log}`);
   }
