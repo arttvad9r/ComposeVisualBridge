@@ -139,8 +139,20 @@ export async function createNativeBridge({data,atomic,serial}) {
     const timeout=setTimeout(()=>{if(current===generation&&socket?.readyState!==1){socket?.close();connection={status:'error',endpoint,error:'Buddy не ответил за 10 секунд'};}},10000);timeout.unref();
     function attempt() {
     if(current!==generation)return;
-    const ws=new WebSocket(endpoint);socket=ws;let opened=false;
-    ws.addEventListener('open',()=>{if(current!==generation||Date.now()>deadline){ws.close();return;}opened=true;clearTimeout(timeout);connection={status:'connected',endpoint,error:null};ws.send(JSON.stringify({cmd:'requestPreviewList'}));ws.send(JSON.stringify({cmd:'rerender'}));});
+    const ws=new WebSocket(endpoint);socket=ws;let opened=false,retryTimer=null;
+    const retryOrFinish=()=>{
+      if(current!==generation)return;
+      socket=null;
+      if(Date.now()<deadline&&!state.draft.length){
+        connection={status:'connecting',endpoint,error:null};
+        if(retryTimer===null){retryTimer=setTimeout(()=>{retryTimer=null;attempt();},500);retryTimer.unref();}
+        return;
+      }
+      clearTimeout(timeout);
+      if(!opened)connection={status:'error',endpoint,error:'Не удалось подключиться к Buddy за 10 секунд'};
+      else if(connection.status!=='error')connection={status:'disconnected',endpoint,error:null};
+    };
+    ws.addEventListener('open',()=>{if(current!==generation||Date.now()>deadline){ws.close();return;}opened=true;if(retryTimer!==null){clearTimeout(retryTimer);retryTimer=null;}clearTimeout(timeout);connection={status:'connected',endpoint,error:null};ws.send(JSON.stringify({cmd:'requestPreviewList'}));ws.send(JSON.stringify({cmd:'rerender'}));});
     ws.addEventListener('message',event=>{
       serial(async()=>{
         if(current!==generation)return;
@@ -157,15 +169,12 @@ export async function createNativeBridge({data,atomic,serial}) {
         }catch(error){connection={status:'error',endpoint,error:error.message};}
       }).catch(error=>{connection={status:'error',endpoint,error:error.message};});
     });
-    ws.addEventListener('error',()=>{if(current===generation&&opened&&Date.now()>=deadline)connection={status:'error',endpoint,error:'Соединение с Buddy прервано'};});
-    ws.addEventListener('close',()=>{
+    ws.addEventListener('error',()=>{
       if(current!==generation)return;
-      socket=null;
-      if(Date.now()<deadline&&!state.draft.length){connection={status:'connecting',endpoint,error:null};const retry=setTimeout(attempt,500);retry.unref();return;}
-      clearTimeout(timeout);
-      if(!opened)connection={status:'error',endpoint,error:'Не удалось подключиться к Buddy за 10 секунд'};
-      else if(connection.status!=='error')connection={status:'disconnected',endpoint,error:null};
+      if(!opened){retryOrFinish();return;}
+      if(Date.now()>=deadline)connection={status:'error',endpoint,error:'Соединение с Buddy прервано'};
     });
+    ws.addEventListener('close',retryOrFinish);
     }
     attempt();
     return view();
