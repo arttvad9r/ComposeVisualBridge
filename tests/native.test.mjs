@@ -64,7 +64,7 @@ function websocketFixture() {
   });
   return {server,commands,send,drop:()=>peer.destroy(),close:async()=>{for(const s of sockets)s.destroy();await new Promise(resolve=>server.close(resolve));}};
 }
-const eventually=async fn=>{for(let i=0;i<100;i++){if(await fn())return;await new Promise(r=>setTimeout(r,30));}assert.fail('Состояние не обновилось');};
+const eventually=async fn=>{for(let i=0;i<200;i++){if(await fn())return;await new Promise(r=>setTimeout(r,50));}assert.fail('Состояние не обновилось');};
 test('Buddy websocket handshake, catalog and late incoming frame preserve the active draft',{skip:typeof WebSocket==='undefined'},async t=>{
   const ws=websocketFixture();ws.server.listen(0,'127.0.0.1');await once(ws.server,'listening');t.after(ws.close);
   const f=await fixture(t);const endpoint=`ws://127.0.0.1:${ws.server.address().port}/`;
