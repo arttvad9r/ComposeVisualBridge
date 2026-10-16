@@ -1,32 +1,63 @@
-[English](README.en.md) | Русский
+<div align="center">
+
+**English** · [Русский](README.ru.md)
+
 
 # Compose Visual Bridge
 
-Редактор, в котором пользователь выбирает элементы и задаёт визуальные правки, а агент затем переносит согласованные изменения в исходный код. Работает как локальная веб-страница в обычном или встроенном браузере. Первый целевой стек — Android Jetpack Compose; протокол не привязан к Codex или Claude Code.
+**Visual feedback for AI-assisted Jetpack Compose development.**
 
-**Версия: 0.10.7.** [Проверяемый браузерный импорт Compose](docs/browser-compose.md) связывает редактируемые HTML-элементы с Kotlin-вызовами и настоящим Android-захватом. Правки переносятся в отдельную копию с проверкой ревизии; результат проверяется сборкой Android. Поддерживаются Text/Column/Row/Box/Card/Button/Spacer/Surface и явно описанный синтаксис. Общая оболочка содержит дерево, свойства, drag/resize, Undo/Redo и сравнение с эталоном.
+[![CI](https://github.com/arttvad9r/ComposeVisualBridge/actions/workflows/ci.yml/badge.svg)](https://github.com/arttvad9r/ComposeVisualBridge/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/arttvad9r/ComposeVisualBridge?display_name=tag)](https://github.com/arttvad9r/ComposeVisualBridge/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node.js 22+](https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 
-[Нативный просмотр](docs/native-ui.md) остаётся доступен: его PNG показывает оригинальный Preview, а рамки сохраняют намерение для агента. Проверенный двусторонний цикл и визуальные расхождения описаны в [отчёте](docs/verification/browser-compose-2026-10-11.md). Открытие любого экрана работающего приложения, custom-компоненты и точное воспроизведение всех тем ещё в разработке.
+</div>
 
-На настоящем SettingsScreen Mealio принят [пилот с двумя переносами](docs/verification/mealio-acceptance-2026-10-12.md): ресурсы/callbacks, светлая и тёмная темы, длинные строки, другой viewport и системный шрифт 160%. Экран подключён через явный runtime-адаптер; произвольный Kotlin требует отдельной проверки.
+A local visual editor that lets a user select UI elements, make visual changes, and hand the approved intent back to an AI coding agent for transfer into source code. The first production target is Android Jetpack Compose; the protocol itself is not tied to Codex or Claude Code.
 
-Для редактирования запускайте `scripts/plugin.mjs edit-previews` ([экраны из Preview без эмулятора](docs/previews.md)); `edit-compose` по инструкции импорта — запасной путь. Эта команда возвращает URL живых элементов. `native-run` возвращает просмотр PNG с рамками и служит для захвата/инспекции.
+**Current version: 0.10.7.** The verified Compose import path links editable browser elements to Kotlin calls and real Android captures. Transfers are prepared in an isolated copy, guarded by source revisions, and validated by an Android build.
 
-После переноса агент записывает результат конкретного снимка. Редактор показывает настоящие «До/После»; принятие обновляет исходник, сохраняя поздние правки или отдельный черновик при конфликте. Undo/Redo переживают перезагрузку. [Контракт результата](docs/protocol.md#результат-переноса-и-история--084).
+<p align="center">
+  <img src="docs/assets/readme-editor.png" width="1100" alt="Compose Visual Bridge editor with a Compose-derived screen, tree and properties panel">
+</p>
 
-В 0.9.1 исправлены восстановление debug-host после отказа и свежесть live-захвата при разных часах устройства и хоста. [Проверки и команда нативного стенда](docs/verification/live-recovery-2026-10-12.md); приёмка навигации второго проекта остаётся открытой.
+## Why it exists
 
-В 0.10.0 добавлен [импорт всех экранов из `@Preview` без эмулятора](docs/previews.md) (`edit-previews`): карта связей строится по исходникам, сохранённые иконки не растягиваются. В 0.10.7 устранено автоматическое подтверждение: исходный браузерный макет нужно сравнить с кадром Preview. Неподдерживаемые UI-вызовы и ошибка Gradle прерывают автоматический импорт с объяснением; служебные метаданные не меняют ревизию исходников.
+AI coding agents are good at changing UI code, but describing visual adjustments in text is slow and ambiguous. Compose Visual Bridge adds a visual feedback loop:
 
-В 0.9.2 добавлены плагин для Claude Code, сообщение о повторной передаче неизменённого черновика, отказ от пустого live-кадра и запасной захват окна; узкая панель редактора больше не прокручивается по горизонтали. [Проверка Subtrack](docs/verification/subtrack-native-2026-10-12.md).
+```mermaid
+flowchart LR
+    A[Compose @Preview / native capture] --> B[Visual editor]
+    B --> C[Immutable handoff]
+    C --> D[AI coding agent]
+    D --> E[Compose source]
+    E --> F[Build + before/after verification]
+```
 
-## Использование в Codex и Claude Code
+1. The agent opens a project screen in the editor.
+2. You select, move, resize, or edit elements visually.
+3. The editor records an immutable handoff describing the intended changes.
+4. The agent applies those changes to the real Compose source.
+5. Before/after captures and source revisions are used to verify the result.
 
-Для пользователя готов [плагин 0.10.7](docs/plugin.md): редактор и шрифты входят в пакет, ручная установка skills и npm не требуются. После установки в чате Android-проекта попросите: «Открой экран настроек в Compose Visual Bridge». Агент подготовит отдельную сессию и эталон; вы сравните исходник, подтвердите его и сделаете правки. Сохранённые экраны можно возобновлять.
+The editor does **not** silently rewrite application source. The user approves the baseline and explicitly hands the changes back to the agent.
 
-## Запуск из исходников
+## Highlights
 
-Для импорта и захвата настоящего Compose UI нужен Node.js 22 или новее со встроенным WebSocket; базовый JSON-редактор работает на Node.js 20+. Для первого запуска выполните `npm ci`. Браузерные модули собираются локально через esbuild; CDN не используется.
+- Import screens from Compose `@Preview` without requiring an emulator for the normal preview path.
+- Real Android capture path for native verification and inspection.
+- Source mapping from editable elements back to Kotlin calls.
+- Text, Column, Row, Box, Card, Button, Spacer and Surface support in the verified browser importer.
+- Tree editing, drag/resize, properties, Undo/Redo and before/after comparison.
+- Immutable transfer snapshots with revision checks and conflict-safe result handling.
+- Local-only server bound to localhost by default.
+- Packaged integration for Codex and Claude Code.
+- Automated Node integration tests plus browser/Playwright scenarios.
+
+## Install from source
+
+Requires Node.js 22+ for the full Compose import/capture workflow.
 
 ```sh
 git clone https://github.com/arttvad9r/ComposeVisualBridge.git
@@ -35,102 +66,35 @@ npm ci
 npm start
 ```
 
-Откройте http://127.0.0.1:4173/ в браузере. Сервер доступен только с этого компьютера. Если порт занят:
+Open `http://127.0.0.1:4173/`.
 
-```sh
-PORT=4180 npm start
-```
-
-В терминале Ctrl+C останавливает сервер. Данные остаются в `data/`. Этот каталог не попадает в Git.
-
-Для отдельной сессии с демонстрационным макетом:
-
-```sh
-PORT=4180 BRIDGE_DATA=./data/demo npm start -- --input ./examples/server-screen.json
-```
-
-`--input` действует только при отсутствии session.json в выбранном каталоге. Уже открытый макет заменяется через «Импорт JSON»; импорт сохраняет прежнюю сессию в архив, затем заменяет исходник и черновик. Кнопка «Вернуть предыдущую сессию» в панели изменений восстанавливает прежние правки и снимок; заменённая сессия тоже сохраняется.
-
-При создании этого репозитория локальная тестовая сессия Mealio скопирована в `data/`. Она не является частью проекта или поручением изменить Mealio. Редактор, открытый во время переноса, продолжает работать из прежнего каталога outputs. Для разработки запускайте сервер из этого репозитория на свободном порту; не запускайте два сервера с одним BRIDGE_DATA.
-
-## Как пользоваться
-
-Основной путь для готового приложения: попросите агента открыть экраны проекта через `edit-previews` ([инструкция](docs/previews.md)). Все `@Preview` рисуются на компьютере без эмулятора, каждый экран появляется в списке «Экран и состояние». Сравните исходный макет с кадром Preview через «Дополнительно → Исходник не проверен» и подтвердите совпадение. Затем подвигайте элементы, нажмите «Передать агенту» и поручите перенос в рабочей ветке.
-
-Для оригинального Compose UI следуйте [инструкции подключения](docs/native-ui.md): создайте native-сессию, выберите элемент на настоящем кадре и сохраните намерение. Ниже описан отдельный режим HTML-макета.
-
-1. Попросите агента прочитать [AGENT.md](AGENT.md), исходники выбранного экрана и подготовить JSON-макет со ссылками на код.
-2. Откройте подготовленный агентом экран и выберите элемент в макете или дереве слева. Основной режим содержит визуальные инструменты, «До / После» и «Передать агенту». Импорт, экспорт, отчёт и сведения об исходниках доступны в «Дополнительно». Если исходный макет неточный, сообщите агенту: ошибка реконструкции не должна стать вашей правкой.
-3. Раскройте нужный раздел свойств справа. Настройки текста меняют строки внутри блока; «Положение элемента» меняет положение самого блока.
-4. Над макетом выберите «Компоновка»: по умолчанию свободная — resize не сдвигает соседей и содержимое контейнера. Верхнюю/левую границу карточки можно приблизить к тексту; перетаскивание самой карточки двигает её вместе с детьми. Автоматическая включает расчёт Row/Column и выравнивание. Переключение отменяемо; возвращаясь в свободную, фиксируете текущие позиции. В свободной используйте точный размер; режимы по содержимому/заполнение и выравнивание доступны в автоматической. Изменение структуры в дереве пересчитывает расположение. Размер: «По содержимому», «Заполнить место», «Точный размер» в dp. «Доля свободного места» делит оставшееся пространство между соседями вдоль оси контейнера.
-5. На макете тяните сам элемент в любом направлении: он следует за указателем. Это визуальное смещение относительно компоновки, соседние элементы сохраняют места. Для порядка и вложенности используйте дерево за ⠿: край цели — перед/после, центр контейнера или Shift — внутрь. Восемь ручек и стороны рамки меняют размер; боковые — ширину, верх/низ — высоту, углы — обе. Esc отменяет действие, Ctrl+Z отменяет завершённую правку.
-6. Используйте «До / После», отмену и повтор. Ctrl/Cmd+Z и Ctrl/Cmd+Shift+Z работают вне полей ввода. «Сбросить» возвращает исходный макет; это действие можно отменить. История отмены действует до перезагрузки, черновик сохраняется.
-7. «Передать агенту» сохраняет отдельный снимок и список изменений. Затем поручите агенту перенос в код. Для теста перенос не требуется.
-
-Кнопка сама не отправляет сообщение в чат, не запускает агента и не меняет исходники. Она готовит файлы для следующего поручения.
-
-## Что читать дальше
-
-- [Спецификация проекта](docs/specs/project.md): цель, требования, ограничения и критерии приёмки.
-- [План развития](docs/plans/development.md): открытая работа и приёмка.
-- [Отчёты проверок](docs/verification/README.md): история приёмки по версиям.
-- [Архитектура и разработка](docs/development.md): устройство, запуск и проверки.
-- [Формат данных и HTTP API](docs/protocol.md): контракт между редактором и агентом.
-- [Инструкция агенту](AGENT.md): подготовка макета и перенос отправленных правок.
-
-- [Исследование аналогов и адаптации кода](docs/research/similar-tools-2026-10-10.md).
-
-## Проверка
+## Verification
 
 ```sh
 npm test
-npx playwright install chromium # один раз после установки зависимостей
+npx playwright install chromium   # once
 npm run test:browser
-node --check server.mjs
-node --check public/app.mjs
-node --check public/model.mjs
 ```
 
-Node-тесты проверяют модель, diff, дерево, историю, геометрию, форматирование, API, CLI и переносимый пакет плагина. Браузерные тесты Chromium проверяют перетаскивание, индикаторы, resize, Esc, Undo/Redo, раскрытие разделов, прокрутку, тестовый Apply и восстановление. Каждый браузерный тест использует отдельные временные данные и свободный порт. [Сценарии, установка и ограничения](docs/verification/browser-scenarios.md). Актуальные результаты — в [отчёте исправления аудита](docs/verification/audit-fixes-2026-10-11.md).
+`npm test` packages the agent plugin and runs the model, protocol, source-map, Compose, native-session, live-session, preview and transfer-result suites. Detailed acceptance records live under [`docs/verification/`](docs/verification/).
 
-## Область применения
+## Documentation
 
-Один сервер хранит одну сессию. Нет совместного редактирования, точного воспроизведения Material/Compose и форматирования отдельных слов. Для JSON-макетов исходную ревизию записывает агент. Compose-адаптер проверяет хеши файла и ревизию подготовленной рабочей копии; runtime-сцену переносит агент. Финальную реализацию нужно проверять в Android-проекте. Внешние изображения по HTTPS браузер загружает с указанного сервера.
+- [Plugin usage](docs/plugin.md)
+- [Compose preview import](docs/previews.md)
+- [Native UI capture](docs/native-ui.md)
+- [Live app adapter](docs/live-app.md)
+- [Protocol](docs/protocol.md)
+- [Architecture and development](docs/development.md)
+- [Project specification](docs/specs/project.md)
+- [Verification history](docs/verification/README.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
 
-## Что добавлено в v0.2
+## Status
 
-Перетаскивание использует dnd-kit/dom. На макете теперь действует свободное перемещение; правила вставки перед/после и внутрь контейнера относятся к дереву. Esc отменяет действие. Правила дерева и Undo остаются в нашей модели. Для сравнения библиотек есть отдельный стенд `/lab`; он не сохраняет пользовательскую сессию. [Результаты эксперимента](docs/research/drag-experiment.md).
+Compose Visual Bridge is an active development tool, not a general-purpose visual IDE. Arbitrary custom Compose components and perfect theme reproduction still require agent-assisted verification. The project deliberately fails closed when it cannot map or validate a change safely.
 
-В интерфейсе одна кнопка «Передать агенту» без выбора режима. Apply сохраняет `report.md` вместе с JSON. В нижней панели видно, совпадает ли черновик с последним снимком; кнопка «Отчёт последнего снимка» открывает и скачивает отчёт. Снимок содержит сведения о проверке исходного макета; технический режим выбирается автоматически. Передача не запускает агента и не меняет код.
+## License
 
-Перед прямым запуском `node server.mjs` выполните `npm run build`. Сборка находится в `public/build/` и не хранится в Git. `npm start` собирает её автоматически. Лицензии зависимостей — [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
-## Прямое редактирование макета — v0.2.3
-
-Тяните элемент за его содержимое для смещения вверх/вниз и в стороны. Тяните край рамки либо ручку для изменения размера. Противоположная сторона остаётся на месте, включая элементы с выравниванием по центру. Ручки доступны с клавиатуры: стрелки сдвигают выбранную границу на 1 dp, Shift со стрелкой — на 10 dp. В раскрываемом разделе «Расположение» можно точно задать смещения.
-
-Одна завершённая операция даёт одну запись Undo; отменённое движение ничего не сохраняет. Размер ограничен также отступами и обводкой элемента: рамка показывает фактический размер. Веб-превью приблизительное; сдвиг может перекрывать соседей и обрезаться экраном.
-
-## Команды агента
-
-Подготовлен общий skill-пакет и CLI: `npm run bridge -- create`, `open`, `read`. Аргументы, подключение в проекте и ограничения описаны в [интеграции](docs/integration.md). CLI создаёт отдельную сессию, запускает редактор на свободном порту и читает только переданный снимок. Интеграция в Codex проверена; проверка Claude отложена из-за лимитов.
-
-## Плагин Codex
-
-Для обычной работы используйте [Compose Visual Bridge как плагин](docs/plugin.md): пакет уже включает редактор, сессии и порты выбираются автоматически. Пользовательские данные сохраняются отдельно от установки. Для разработки пакет и архив собираются командой `npm run package:plugin`. Плагин доступен в локальном каталоге этого проекта; в общий каталог он пока не опубликован.
-
-## Проверка исходника — v0.3.0
-
-Агент может загрузить настоящий снимок командой плагина reference; пользователь сравнивает изображения и подтверждает baseline в редакторе. Подтверждение привязано к содержимому исходного макета, исходникам и эталону. Старые сессии не подтверждены автоматически. Передача для согласования без подтверждения отклоняется сервером. Автоматические frames отмечены как технический контекст; intent.changes содержит намерение пользователя.
-
-Для нативного экрана агент указывает viewport.presentation=content, реальные размеры в dp, fontScale и типографику из Compose. Рамка телефона и условные системные панели в этом режиме отсутствуют. В пакет включены Roboto и Roboto Flex; межбуквенный интервал, число строк и многоточие доступны в инспекторе. Совпадение координат блоков не доказывает совпадение шрифтов, переносов, цветов и элементов управления — всё это нужно сравнить с настоящим снимком.
-
-Плагин умеет перечислять сохранённые экраны командой list и открывать выбранную сессию. Это список подготовленных экранов проекта; автоматическое извлечение всех состояний приложения пока не реализовано.
-
-Для получения настоящих размеров и типографики Compose используйте [нативный сборщик](integrations/android/README.md). Он проверен на отдельной тестовой копии Mealio; исходники и пользовательская сессия Mealio не менялись.
-
-[Цикл результата 0.8.4 проверен](docs/verification/transfer-result-2026-10-12.md): запись результата агентом, нативные До/После, принятие нового исходника, сохранение поздних правок и Undo/Redo после перезапуска.
-
-В управляемых сессиях доступен выбор экранов и состояний, отдельный новый экран с запросом и палитра проекта. [Debug-адаптер работающего приложения](docs/live-app.md) подготовлен; нативная приёмка переходов и тем ещё требуется.
-
-[Проверки экранов и установленного пакета 0.9.0](docs/verification/screens-plugin-2026-10-12.md): нативная приёмка текущей сцены остаётся открытой до восстановления KVM.
+MIT. Third-party notices are documented in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
