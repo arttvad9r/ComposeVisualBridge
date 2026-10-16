@@ -1,0 +1,77 @@
+version = 1
+updated_at = "2026-10-16T06:40:38.899561+00:00"
+profiles = ["android-core", "design-web"]
+explicit_skills = []
+targets = ["claude", "codex"]
+
+[[skills]]
+name = "android-cli"
+source = "android-skills"
+revision = "5bda39f154fb859a08d45e2392f3568e049f83fb"
+sha256 = "c8712fbdb846b7e40be5ab0d178fae84e72af036d726fbc1755ead486c17c065"
+
+[[skills]]
+name = "android-emu"
+source = "local"
+revision = "imported-2026-10-16"
+sha256 = "18b5a9ac3febd96730b853104063d29f38d351967d25a4a69c21f7182bb4cfe6"
+
+[[skills]]
+name = "impeccable"
+source = "impeccable"
+revision = "5bf0a069dc857e1b5f4b090e004d9d5b231416ca"
+sha256 = "977aa81d50cc637cbbc90aad6920d766635cad029e16727506cd0287c0583d07"
+
+[[skills]]
+name = "create-design-md"
+source = "ui-skills"
+revision = "fdd6c09dd866354a627ddf3fa46b7b01d421176d"
+sha256 = "9100cf1cf18b5dfee479b0365c4beaca93048c637965d6cf6bf2146f460427fe"
+
+[[skills]]
+name = "improve-ui"
+source = "ui-skills"
+revision = "fdd6c09dd866354a627ddf3fa46b7b01d421176d"
+sha256 = "59c575e5c842e9d24f1700ae781c4797205792484e7ff417d3321ac808b32c8d"
+
+[[skills]]
+name = "ui-ux-pro-max"
+source = "ui-ux-pro-max"
+revision = "56ea9cf174ed86786187daa9de0e6247cb0747e4"
+sha256 = "0d3176d6ff898a7d1c5b96e1e2da06135e033c392c8a766051ad57d1f3e7cd30"
+
+[[skills]]
+name = "baseline-ui"
+source = "ui-skills"
+revision = "fdd6c09dd866354a627ddf3fa46b7b01d421176d"
+sha256 = "1736918610fab81e88df63a73555f370314e679179c09c4e86c693a8f12f2a7f"
+
+[[skills]]
+name = "component-canvas"
+source = "ui-skills"
+revision = "fdd6c09dd866354a627ddf3fa46b7b01d421176d"
+sha256 = "5d903653f735ab2644782ec0fb4922b378fb381995cdc79e1db278e7da99e9ff"
+
+[[skills]]
+name = "fixing-accessibility"
+source = "ui-skills"
+revision = "fdd6c09dd866354a627ddf3fa46b7b01d421176d"
+sha256 = "cb9c6533e61c7d11f96899d7c9c00b5e4fddd865704e5f58c750584e8207ea43"
+
+[[skills]]
+name = "fixing-metadata"
+source = "ui-skills"
+revision = "fdd6c09dd866354a627ddf3fa46b7b01d421176d"
+sha256 = "66c6f165b5e61afc6bd4e4b3fef73360e0e081508f9904b676dbe04b33aa849e"
+
+[[skills]]
+name = "fixing-motion-performance"
+source = "ui-skills"
+revision = "fdd6c09dd866354a627ddf3fa46b7b01d421176d"
+sha256 = "5f9d18cd699a1cbcc4856807063e526b5b9f566f9b5130abd4af306b916beb0d"
+
+[[skills]]
+name = "web-design-guidelines"
+source = "vercel-agent-skills"
+revision = "063bee94c3f4df8453406c830b0a7df0f2860278"
+sha256 = "2fd93f276b99d6b1877f527fec74aaa39d4f4fccb4f8a022edbb0298d04dd6eb"
