@@ -20,7 +20,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@dnd-kit/dom": "^0.7.0"
+    "@dnd-kit/dom": "0.5.1"
   },
   "devDependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^4.0.0",

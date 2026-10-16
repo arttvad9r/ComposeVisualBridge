@@ -103,7 +103,7 @@ SOFTWARE.
 
 ```
 
-## @dnd-kit/dom 0.5.0 — MIT
+## @dnd-kit/dom 0.5.1 — MIT
 
 ```text
 MIT License
