@@ -4,7 +4,7 @@
 
 ## Сцена и защита данных
 
-Использован настоящий `SettingsScreen` из `/home/artt/Projects/Mealio`: локальное состояние, повторные FilterChip, собственный InfoValue, Android-ресурсы и обработчики. Debug Preview вызывает этот экран с тестовыми данными `test.invalid`, без подключения к серверу. Адаптер задаёт стабильные ключи вызовов и экземпляры `mode.name`/`lang.name`.
+Использован настоящий `SettingsScreen` из `<Mealio checkout>`: локальное состояние, повторные FilterChip, собственный InfoValue, Android-ресурсы и обработчики. Debug Preview вызывает этот экран с тестовыми данными `test.invalid`, без подключения к серверу. Адаптер задаёт стабильные ключи вызовов и экземпляры `mode.name`/`lang.name`.
 
 Вся инструментация, визуальные переносы, обновление компилятора и тестовые зависимости находятся в `/tmp/cvb-mealio-acceptance-verified-20261012/workspace`. У копии отдельный applicationId `com.arttvad9r.mealio.bridgeacceptance`. Пользовательские сессии редактора не заменялись: каждый этап использовал свой BRIDGE_DATA и свободный порт. Apply сохранил тестовый снимок; Kotlin изменял стенд по разрешённому сценарию переноса, кнопка агента не запускала.
 
@@ -55,7 +55,7 @@ Fixtures: `tests/android/mealio-adapter.json`, `MealioAcceptancePreview.kt`, `Me
 ANDROID_USER_HOME=/tmp/cvb-mealio-android-home-next \
 node tests/android/mealio.mjs \
   --template /tmp/cvb-mealio-scene-20261011 \
-  --project /home/artt/Projects/Mealio \
+  --project <Mealio checkout> \
   --output /tmp/cvb-mealio-acceptance-next \
   --serial emulator-5584
 npm test

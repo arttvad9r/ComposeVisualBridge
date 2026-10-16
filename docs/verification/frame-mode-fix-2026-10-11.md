@@ -12,12 +12,12 @@
 
 ## Проверка на пользовательском BridgeTest
 
-Проект: `/home/artt/Documents/Codex/2026-10-11/android-bridgetest-kotlin-jetpack-compose-compose/outputs/BridgeTest`. Импортирована BridgeTestScreen с Surface, Preview BridgeTestLightPreview. Использован его тестовый emulator-5554; основной проект не изменялся, Git остаётся чистым. Создана отдельная подготовленная копия внутри данных Bridge.
+Проект: `<BridgeTest checkout>`. Импортирована BridgeTestScreen с Surface, Preview BridgeTestLightPreview. Использован его тестовый emulator-5554; основной проект не изменялся, Git остаётся чистым. Создана отдельная подготовленная копия внутри данных Bridge.
 
 Сессия screen-JNzYMF открыта установленным плагином 0.8.1 по `http://127.0.0.1:38451/`. API open: mode=compose, editing=elements. Проверка встроенным браузером: текст «Описание» — настоящий HTML-элемент; перемещение даёт relativeX=20, relativeY=10 и CSS translate=20px 10px. Undo вернул relativeX=0, relativeY=0. Тестовая правка отменена: current равен baseline, черновик сохранён, verification отсутствует. Пользовательский эталон агент не подтверждал.
 
 Исходная сессия screen-gd0ex6 сохранена: revision=62, 7 прежних намерений. Её адрес /native остаётся просмотром прежнего кадра; он не является новым редактором.
 
-`npm test`: 45/45. `npm run test:browser`: 43/43. Есть тесты Surface, сохранения latest после отказа, open.mode/editing, перенаправления /native для Compose-сессии и ссылки на Android-эталон. Node syntax и git diff --check проходят. Плагин 0.8.1 установлен/включён, оба навыка обнаружены, setup готов. Снимок интерфейса сохранён вне репозитория: `/home/artt/.local/share/compose-visual-bridge/verification/frame-mode-fix-2026-10-11.png`.
+`npm test`: 45/45. `npm run test:browser`: 43/43. Есть тесты Surface, сохранения latest после отказа, open.mode/editing, перенаправления /native для Compose-сессии и ссылки на Android-эталон. Node syntax и git diff --check проходят. Плагин 0.8.1 установлен/включён, оба навыка обнаружены, setup готов. Снимок интерфейса сохранён вне репозитория: `$XDG_DATA_HOME/compose-visual-bridge/verification/frame-mode-fix-2026-10-11.png`.
 
 Произвольные custom-компоненты и открытие любого работающего экрана этим исправлением не реализованы; основной [план](../plans/development.md) остаётся незавершённым.

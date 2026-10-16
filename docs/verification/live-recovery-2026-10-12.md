@@ -28,7 +28,7 @@ APK: `/tmp/cvb-subtrack-live-launch-id-20261012`, applicationId `com.arttvad9r.s
 Стенд использует только тестовую debug-копию и отдельный BRIDGE_HOME: пустой светлый список → две одинаково названные подписки → список → детали → тёмный список. Проверяет разные runtime ID одинаковых строк и сохранение связей после смены темы, повторное открытие captureId, поздний браузерный черновик, переключение экранов и stop/open с историей Undo. При изменившейся форме или неоднозначной UI-цели останавливается. PNG Android и редактора сохраняются для отдельной визуальной сверки. Его unit-тесты подтверждают только разбор XML и отказ при неоднозначности. Первый настоящий запуск и исправление описаны ниже.
 
 ```sh
-cd /home/artt/Projects/ComposeVisualBridge
+cd <ComposeVisualBridge checkout>
 node tests/android/subtrack-live.mjs \
   --workspace /tmp/cvb-subtrack-live-launch-id-20261012 \
   --output /tmp/cvb-subtrack-host-check-20261012
@@ -51,7 +51,7 @@ Evidence первого запуска: `/tmp/cvb-subtrack-host-check-20261012/e
 Теперь стенд сохраняет raw JSON и PNG при отказе bind, чтобы не терять диагностику после освобождения устройства. Повторный запуск использует новую копию и отдельный каталог, оставляя первый результат нетронутым:
 
 ```sh
-cd /home/artt/Projects/ComposeVisualBridge
+cd <ComposeVisualBridge checkout>
 node tests/android/subtrack-live.mjs \
   --workspace /tmp/cvb-subtrack-live-leaf-fix-20261012 \
   --output /tmp/cvb-subtrack-host-check-retry-20261012

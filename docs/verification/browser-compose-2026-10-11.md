@@ -34,7 +34,7 @@
 - `node --check`: изменённые модули импортёра, CLI, сервера интеграции, модели/renderer и упаковки проходят.
 - Пакет `dist/compose-visual-bridge-0.8.0.tgz`. Установленный плагин 0.8.0 включён, оба навыка обнаружены; setup ready, native.nodeReady и native.buildReady — true.
 
-Артефакты настоящего цикла сохранены вне репозитория: `/home/artt/.local/share/compose-visual-bridge/verification/browser-compose-2026-10-11/`. Там находятся Android/Chromium PNG до и после, метаданные/сравнения, код переноса и нового экрана, каталог сборки, журнал компиляции и evidence.json. Пользовательские data/ и снимки не включены в пакет.
+Артефакты настоящего цикла сохранены вне репозитория: `$XDG_DATA_HOME/compose-visual-bridge/verification/browser-compose-2026-10-11/`. Там находятся Android/Chromium PNG до и после, метаданные/сравнения, код переноса и нового экрана, каталог сборки, журнал компиляции и evidence.json. Пользовательские data/ и снимки не включены в пакет.
 
 ## Что ещё не принято
 

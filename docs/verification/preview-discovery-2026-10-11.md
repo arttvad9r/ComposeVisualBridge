@@ -4,7 +4,7 @@ Bridge 0.5.0 добавляет prepare-native/native-build/native-catalog. По
 
 ## Проверка реального компилятора
 
-Исходник — существующая проверочная копия `/home/artt/Projects/Mealio-bridge-check`; подготовлен новый `/tmp/cvb-ksp-mealio`. Основной Mealio, исходная проверочная копия и пользовательские редакторские сессии не менялись. Kotlin compiler и plugins обновлены только в новом workspace до 2.3.20 явным --upgrade-kotlin. AGP 8.9.2, compileSdk 36, KSP 2.3.6, Buddy device/runtime processor 0.3.0, OpenJDK 21.0.2.
+Исходник — существующая проверочная копия `<Mealio test checkout>`; подготовлен новый `/tmp/cvb-ksp-mealio`. Основной Mealio, исходная проверочная копия и пользовательские редакторские сессии не менялись. Kotlin compiler и plugins обновлены только в новом workspace до 2.3.20 явным --upgrade-kotlin. AGP 8.9.2, compileSdk 36, KSP 2.3.6, Buddy device/runtime processor 0.3.0, OpenJDK 21.0.2.
 
 Требование JDK проверено непосредственно у опубликованного [KSP JVM artifact](https://repo.maven.apache.org/maven2/dev/mikepenz/composebuddy/compose-buddy-device-ksp-jvm/0.3.0/): BuddyPreviewProcessor.class имеет major 65 (Java 21). Runtime без KSP ранее работал с JDK 17; это разные требования. Временный OpenJDK загружен из [официального архива](https://jdk.java.net/archive/) и проверен по SHA-256 издателя, системный JDK не заменялся.
 

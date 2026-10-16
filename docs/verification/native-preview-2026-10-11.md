@@ -10,7 +10,7 @@ Bridge 0.4.0 показал оригинальный SettingsScreen Mealio че�
 
 ## Стенд и совместимость
 
-Временная копия создана из существующего `/home/artt/Projects/Mealio-bridge-check`, без build, .gradle и keystore. Изменения runtime, compiler, тестовых сцен и шрифта выполнены только в `/tmp/cvb-buddy-acceptance-…/project`. Основной Mealio, существующая проверочная копия и пользовательские сессии Bridge не изменялись этой проверкой.
+Временная копия создана из существующего `<Mealio test checkout>`, без build, .gradle и keystore. Изменения runtime, compiler, тестовых сцен и шрифта выполнены только в `/tmp/cvb-buddy-acceptance-…/project`. Основной Mealio, существующая проверочная копия и пользовательские сессии Bridge не изменялись этой проверкой.
 
 JDK 17, AGP 8.9.2, compileSdk 36; Kotlin/Compose compiler обновлены в disposable-копии с 2.1.0 до 2.3.20. Buddy runtime подтянул Compose 1.10.6, Activity 1.13.0 и Ktor 3.4.2. Собран и установлен debug APK. Проверен ручной BuddyPreviewRegistryImpl с двумя обёртками оригинального SettingsScreen и MealioTheme: русский язык, светлая/тёмная тема, fontScale=1, синтетический ServerAccount, пустые обработчики действий, без серверного аккаунта и запросов сети. KSP-обнаружение не проверялось.
 

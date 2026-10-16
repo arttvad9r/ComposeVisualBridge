@@ -26,7 +26,7 @@
 | APK SHA-256 | `33392c1ffdd9ed68320b3edcc78d2d4378d8fbeef3cd72c57f33fb75dd45bf3e` | `15e9e6be9f9fa15a6a83f5a81357d6f615ef4f936ae5a05f9d289ef2694dee67` |
 | frame digest | `7755553c6d2dc6c6ec9f65306b3f11bfd5cfef10c871c992112236a28fa55012` | `e7ce78a7edbc9939d7ef9c3f09c837de1c05d016c5957b443192b11b784b6ba0` |
 
-JSON-доказательства, исходная передача и скриншоты сохранены вне Git: `/home/artt/.local/share/compose-visual-bridge/verification/2026-10-11`. Тестовые сервер, эмулятор и принадлежащие запуску forwards остановлены.
+JSON-доказательства, исходная передача и скриншоты сохранены вне Git: `$XDG_DATA_HOME/compose-visual-bridge/verification/2026-10-11`. Тестовые сервер, эмулятор и принадлежащие запуску forwards остановлены.
 
 ## Установка
 

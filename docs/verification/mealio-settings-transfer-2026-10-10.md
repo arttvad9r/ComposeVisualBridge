@@ -10,9 +10,9 @@
 
 ## Изоляция и происхождение
 
-- Checkout: /home/artt/Projects/Mealio-bridge-check, ветка bridge/settings-transfer-check, commit a4ea481d91fcbe44dea5057dbc378559aa4d24ec. В этот commit входят только две правки отступов и наш проверочный тест; скопированные чужие незакоммиченные изменения не добавлены в commit.
+- Checkout: <Mealio test checkout>, ветка bridge/settings-transfer-check, commit a4ea481d91fcbe44dea5057dbc378559aa4d24ec. В этот commit входят только две правки отступов и наш проверочный тест; скопированные чужие незакоммиченные изменения не добавлены в commit.
 - Исходная рабочая копия содержала много незакоммиченных правок. В отдельный checkout скопирован этот текущий код, включая необходимые незакоммиченные Kotlin-файлы. Это не означает, что все скопированные правки принадлежат данной проверке; экспортированный патч содержит только две наши правки SettingsScreen.
-- Основной /home/artt/Projects/Mealio/SettingsScreen не изменён, его SHA-256 совпадает с исходным снимком. Сессия редактора на 4180 не перезаписывалась.
+- Основной <Mealio checkout>/SettingsScreen не изменён, его SHA-256 совпадает с исходным снимком. Сессия редактора на 4180 не перезаписывалась.
 - Состояние: синтетический аккаунт, русский язык, светлая тема, SettingsScreen непосредственно в тестовой Activity. Навигационная оболочка не включена в сравнение, реальные учётные данные и backend не использовались.
 - Эмулятор oneplus-13s-2, serial emulator-5560, API 36, снимок 1216×2640 px, density 3.5. Физический телефон не использовался.
 - Перед переносом проверены SHA-256 SettingsScreen, CommonComponents, Tokens, Color, Theme и русских строк. Контрольное изменение копии исходника дало несовпадение хеша; реальные файлы для этого не менялись. Это проверка файлового протокола агентом, не автоматический Kotlin-парсер продукта.
@@ -30,7 +30,7 @@
 
 ## Воспроизведение
 
-Запускать Gradle с JAVA_HOME=/usr/lib/jvm/java-17-openjdk, ANDROID_HOME=/home/artt/Android/Sdk. Собирать debug/test APK штатным wrapper. Для двухфазной проверки запустить fixture с bridgePhase=baseline до патча и bridgePhase=after после патча на одном тестовом эмуляторе; исходный JSON остаётся в files/bridge/baseline.json тестового приложения. Проверочный тест расположен в app/src/androidTest/java/com/arttvad9r/mealio/bridge/BridgeSettingsTransferTest.kt. Снимки и метрики, исходные хеши, baseline/proposed/applied и логи сохранены локально в data/mealio-check/ (вне Git).
+Запускать Gradle с JAVA_HOME=/usr/lib/jvm/java-17-openjdk, ANDROID_HOME=$ANDROID_HOME. Собирать debug/test APK штатным wrapper. Для двухфазной проверки запустить fixture с bridgePhase=baseline до патча и bridgePhase=after после патча на одном тестовом эмуляторе; исходный JSON остаётся в files/bridge/baseline.json тестового приложения. Проверочный тест расположен в app/src/androidTest/java/com/arttvad9r/mealio/bridge/BridgeSettingsTransferTest.kt. Снимки и метрики, исходные хеши, baseline/proposed/applied и логи сохранены локально в data/mealio-check/ (вне Git).
 
 ## Границы результата
 

@@ -29,7 +29,7 @@
 Для повторной нативной приёмки на машине с KVM:
 
 ```sh
-node tests/android/geometry.mjs --template /tmp/cvb-browser-compose/workspace --output /tmp/cvb-geometry-new-run --sdk /home/artt/Android/Sdk --port 5586
+node tests/android/geometry.mjs --template /tmp/cvb-browser-compose/workspace --output /tmp/cvb-geometry-new-run --sdk $ANDROID_HOME --port 5586
 ```
 
 Стенд теперь требует совпадения внешних/внутренних размеров и отступов, а также проверяет выбранные пиксели области заливки. Различия растеризации текста, clipping/radius/border в произвольных цепочках и другие viewport/fontScale этим прогоном не закрыты.
@@ -52,7 +52,7 @@ node tests/android/geometry.mjs --template /tmp/cvb-browser-compose/workspace --
 Первый успешный свежий прогон: `/tmp/cvb-geometry-oneplus-20261011`. Итоговый прогон после добавления явной проверки x/y контейнеров и дочерних Text: `/tmp/cvb-geometry-oneplus-final-20261011`, также без расхождений. Итоговый evidence содержит 64 сравнения координат/размеров и 16 сравнений отступов в двух итерациях; отдельно прошли 15 проверок пикселей Android/HTML. В каталогах сохранены снимки, capture/import JSON, планы Kotlin и каталоги APK с SHA. Для воспроизведения на уже запущенном тестовом эмуляторе:
 
 ```sh
-ANDROID_USER_HOME=/tmp/cvb-geometry-android-home-20261011 node tests/android/geometry.mjs --template /tmp/cvb-browser-compose/workspace --output /tmp/cvb-geometry-next-run --sdk /home/artt/Android/Sdk --serial emulator-5584
+ANDROID_USER_HOME=/tmp/cvb-geometry-android-home-20261011 node tests/android/geometry.mjs --template /tmp/cvb-browser-compose/workspace --output /tmp/cvb-geometry-next-run --sdk $ANDROID_HOME --serial emulator-5584
 ```
 
 Три обнаруженные проблемы автоматического режима подтверждены новой нативной приёмкой. Это не полная приёмка Mealio: темы, ресурсы/callbacks, длинные строки, повышенный fontScale и адаптивность реального экрана остаются в плане шага 3.

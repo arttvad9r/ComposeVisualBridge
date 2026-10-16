@@ -1,3 +1,5 @@
+[English](README.en.md) | Русский
+
 # Compose Visual Bridge
 
 Редактор, в котором пользователь выбирает элементы и задаёт визуальные правки, а агент затем переносит согласованные изменения в исходный код. Работает как локальная веб-страница в обычном или встроенном браузере. Первый целевой стек — Android Jetpack Compose; протокол не привязан к Codex или Claude Code.
@@ -27,7 +29,8 @@
 Для импорта и захвата настоящего Compose UI нужен Node.js 22 или новее со встроенным WebSocket; базовый JSON-редактор работает на Node.js 20+. Для первого запуска выполните `npm ci`. Браузерные модули собираются локально через esbuild; CDN не используется.
 
 ```sh
-cd /home/artt/Projects/ComposeVisualBridge
+git clone https://github.com/arttvad9r/ComposeVisualBridge.git
+cd ComposeVisualBridge
 npm ci
 npm start
 ```
